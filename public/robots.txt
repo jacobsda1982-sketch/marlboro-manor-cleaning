@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://marlboromanorcleaning.com/sitemap.xml
