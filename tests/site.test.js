@@ -45,11 +45,28 @@ test('unverified trust claims and telephone schema remain disabled', () => {
   assert.equal(business.claims.insured, false)
   assert.equal(business.claims.backgroundChecked, false)
   assert.equal(business.phoneE164, '')
+  assert.equal(business.testContentEnabled, false)
   pages.forEach(page => {
     const html = renderPage(page)
     assert.doesNotMatch(html, /"telephone"/)
     assert.doesNotMatch(html, /five-star|background.checked|fully insured/i)
+    assert.doesNotMatch(html, /Insurance documentation: verification pending/)
   })
+})
+
+test('homepage permanently includes disclosed synthetic brand imagery', () => {
+  const home = renderPage(pages.find(page => page.path === '/'))
+  assert.match(home, /AI-generated Marlboro Manor brand concept/)
+  assert.match(home, /not a customer home or completed job/)
+  assert.match(home, /brand-image-mark/)
+})
+
+test('approved company seal is present in hero, footer, and social metadata', () => {
+  const home = renderPage(pages.find(page => page.path === '/'))
+  assert.match(home, /images\/brand\/marlboro-manor-seal\.webp/)
+  assert.match(home, /Marlboro Manor Cleaning seal with the tagline Come Home to Immaculate/)
+  assert.match(home, /property="og:image"/)
+  assert.match(home, /class="footer-seal"/)
 })
 
 test('public HTML includes core accessibility and security affordances', () => {

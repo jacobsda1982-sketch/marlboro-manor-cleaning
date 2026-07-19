@@ -22,12 +22,16 @@ Executed with bundled Node on 2026-07-19:
 - Separate public portal CTA test: passed across all routes.
 - Unverified-claim and telephone-schema guard: passed.
 - Core HTML accessibility/security affordance test: passed.
-- Automated total: **6 passed, 0 failed**.
+- Automated total: **8 passed, 0 failed**.
 - Production build: passed; **22 static routes** generated in `dist/`.
 - Browser rendering: passed for the homepage, detail-cleaning service page, Bowie service-area page, privacy-policy draft, and custom 404.
 - Representative pages exposed one H1, unique document titles, primary navigation, and the public portal CTA.
+- Permanent brand imagery: two optimized synthetic WebP concepts render with visible AI-generated captions, `MM` brand marks, descriptive alternative text, and a footer disclosure.
+- Approved synthetic company seal: optimized to WebP and rendered in the homepage hero, footer, and Open Graph/Twitter image metadata while the compact navigation monogram remains readable at small sizes.
+- Preview test-content build: passed with pending insurance/profile wording and a global preview-only disclosure.
+- Default production-safe build: confirmed pending trust language is absent when `PUBLIC_ENABLE_TEST_CONTENT` is false or unset; disclosed brand imagery remains visible.
 - Deployable archive: `artifacts/Marlboro_Manor_Website_v3_Cloudflare_Pages.zip`.
-- Archive SHA-256: `682d4cc164b149cc8cce0e9fe887306a74b4b506fbbe6fa6fd26de28f8a4b03b`.
+- Archive SHA-256: `fa87a5685fc506e8ab94d076ede04c7b50b5b1d17886d3fac6c623258fd2f0f2`.
 
 ## Manual release gates
 
