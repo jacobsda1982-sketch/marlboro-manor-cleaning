@@ -8,6 +8,7 @@ export default function Header({ onQuote }) {
     ['Services', '#services'],
     ['Why Us', '#why-us'],
     ['Pricing', '#pricing'],
+    ['Quote Portal', site.quotePortalUrl],
     ['FAQ', '#faq'],
     ['Contact', '#contact']
   ]

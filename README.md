@@ -26,13 +26,11 @@ npm run dev
 5. Deploy and test the assigned `pages.dev` URL.
 6. Add `marlboromanorcleaning.com` and `www.marlboromanorcleaning.com` under Custom Domains.
 
-## Quote form
+## Quote portal
 
-The current three-step quote wizard opens the visitor's email application with their information prefilled and addressed to:
+The website routes visitors from `/quote` and every quote call-to-action to the separately deployed public Apps Script application. Cloudflare Pages performs a temporary redirect using `public/_redirects`.
 
-`quotes@marlboromanorcleaning.com`
-
-This means the site does not need a Worker or Pages Function at launch. A server-side form endpoint can be added later without redesigning the site.
+The portal source is versioned under `integrations/marble-quote-portal/`. Set `VITE_QUOTE_PORTAL_URL` in a preview environment to override the default `/quote` route when testing another deployment.
 
 ## Required pre-launch review
 
