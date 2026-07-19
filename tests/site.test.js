@@ -61,6 +61,14 @@ test('homepage permanently includes disclosed synthetic brand imagery', () => {
   assert.match(home, /brand-image-mark/)
 })
 
+test('approved company seal is present in hero, footer, and social metadata', () => {
+  const home = renderPage(pages.find(page => page.path === '/'))
+  assert.match(home, /images\/brand\/marlboro-manor-seal\.webp/)
+  assert.match(home, /Marlboro Manor Cleaning seal with the tagline Come Home to Immaculate/)
+  assert.match(home, /property="og:image"/)
+  assert.match(home, /class="footer-seal"/)
+})
+
 test('public HTML includes core accessibility and security affordances', () => {
   pages.forEach(page => {
     const html = renderPage(page)
