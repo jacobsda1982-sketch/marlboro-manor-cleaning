@@ -20,4 +20,6 @@ Set `PUBLIC_ENABLE_TEST_CONTENT=true` only in the Cloudflare **Preview** environ
 
 Merging a reviewed pull request to `main` triggers Cloudflare Pages. Validate the branch preview first, then verify all routes, `/quote`, the apex/`www` redirect, headers, sitemap, robots, and custom 404 after deployment.
 
+The generated `_worker.js` enforces `www.marlboromanorcleaning.com` → `marlboromanorcleaning.com` with a permanent redirect before serving static assets through Cloudflare's `ASSETS` binding. Keep the apex domain as the canonical custom domain.
+
 Rollback through Cloudflare’s previous deployment control or revert the Git commit and redeploy.

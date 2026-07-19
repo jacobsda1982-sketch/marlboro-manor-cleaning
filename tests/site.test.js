@@ -69,6 +69,14 @@ test('approved company seal is present in hero, footer, and social metadata', ()
   assert.match(home, /class="footer-seal"/)
 })
 
+test('rendered markup uses encoding-safe HTML entities for UI symbols', () => {
+  pages.forEach(page => {
+    const html = renderPage(page)
+    assert.doesNotMatch(html, /â†’|Â©/)
+    assert.doesNotMatch(html, />→</)
+  })
+})
+
 test('public HTML includes core accessibility and security affordances', () => {
   pages.forEach(page => {
     const html = renderPage(page)
