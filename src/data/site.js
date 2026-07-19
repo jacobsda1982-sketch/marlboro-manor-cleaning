@@ -4,6 +4,7 @@ export const site = {
   quotesEmail: "quotes@marlboromanorcleaning.com",
   phone: "",
   domain: "https://marlboromanorcleaning.com",
+  quotePortalUrl: import.meta.env.VITE_QUOTE_PORTAL_URL || "/quote",
   serviceArea: "Upper Marlboro, Bowie, Largo, Clinton, Mitchellville, and nearby Prince George’s County communities",
   hours: "Monday–Friday 8:00 AM–6:00 PM · Saturday 9:00 AM–3:00 PM · Sunday closed"
 }

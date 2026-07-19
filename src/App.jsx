@@ -120,7 +120,7 @@ export default function App() {
       <footer id="contact" className="footer">
         <div className="container footer-grid">
           <div><div className="brand footer-brand"><span className="brand-emblem">MM</span><span className="brand-copy"><strong>Marlboro Manor</strong><small>Cleaning</small></span></div><p>Dependable residential cleaning with thoughtful attention to detail.</p></div>
-          <div><h4>Services</h4><a href="#services">Maintenance Cleaning</a><a href="#services">Detail Cleaning</a><a href="#services">Move-In / Move-Out</a></div>
+          <div><h4>Services</h4><a href="#services">Maintenance Cleaning</a><a href="#services">Detail Cleaning</a><a href="#services">Move-In / Move-Out</a><a href={site.quotePortalUrl}>Quote Portal</a></div>
           <div><h4>Contact</h4><a href={`mailto:${site.email}`}>{site.email}</a><a href={`mailto:${site.quotesEmail}`}>{site.quotesEmail}</a><p>{site.hours}</p></div>
         </div>
         <div className="container footer-bottom">© {new Date().getFullYear()} {site.name}. All rights reserved. <span>Concept site — replace generated imagery with authentic photos before major advertising.</span></div>
