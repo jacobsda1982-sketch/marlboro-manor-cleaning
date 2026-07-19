@@ -50,8 +50,15 @@ test('unverified trust claims and telephone schema remain disabled', () => {
     const html = renderPage(page)
     assert.doesNotMatch(html, /"telephone"/)
     assert.doesNotMatch(html, /five-star|background.checked|fully insured/i)
-    assert.doesNotMatch(html, /Synthetic interior concept/)
+    assert.doesNotMatch(html, /Insurance documentation: verification pending/)
   })
+})
+
+test('homepage permanently includes disclosed synthetic brand imagery', () => {
+  const home = renderPage(pages.find(page => page.path === '/'))
+  assert.match(home, /AI-generated Marlboro Manor brand concept/)
+  assert.match(home, /not a customer home or completed job/)
+  assert.match(home, /brand-image-mark/)
 })
 
 test('public HTML includes core accessibility and security affordances', () => {
