@@ -7,12 +7,14 @@ export const business = {
   phoneE164: '',
   phoneDisplay: '',
   quotePortalUrl: process.env.PUBLIC_QUOTE_PORTAL_URL || 'https://script.google.com/macros/s/AKfycbwJ1V-ZHauLWg3qpIAnw8EsGiiuPnhXOFakBokqO_GUUBrTE08Rhfz44__XdZVDGbkeFA/exec',
+  testContentEnabled: process.env.PUBLIC_ENABLE_TEST_CONTENT === 'true',
+  googleBusinessProfileUrl: process.env.PUBLIC_GOOGLE_BUSINESS_PROFILE_URL || '',
   serviceRadiusMiles: 25,
   areas: ['Upper Marlboro', 'Bowie', 'Mitchellville', 'Largo', 'Clinton'],
   hours: 'Monday–Friday 8:00 AM–6:00 PM · Saturday 9:00 AM–3:00 PM · Sunday closed',
   claims: {
     locallyOwned: true,
-    insured: false,
+    insured: process.env.PUBLIC_INSURANCE_VERIFIED === 'true',
     backgroundChecked: false,
     suppliesProvided: false
   }

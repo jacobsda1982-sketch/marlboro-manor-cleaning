@@ -45,10 +45,12 @@ test('unverified trust claims and telephone schema remain disabled', () => {
   assert.equal(business.claims.insured, false)
   assert.equal(business.claims.backgroundChecked, false)
   assert.equal(business.phoneE164, '')
+  assert.equal(business.testContentEnabled, false)
   pages.forEach(page => {
     const html = renderPage(page)
     assert.doesNotMatch(html, /"telephone"/)
     assert.doesNotMatch(html, /five-star|background.checked|fully insured/i)
+    assert.doesNotMatch(html, /Synthetic interior concept/)
   })
 })
 

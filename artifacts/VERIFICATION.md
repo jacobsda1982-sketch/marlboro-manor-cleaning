@@ -26,8 +26,10 @@ Executed with bundled Node on 2026-07-19:
 - Production build: passed; **22 static routes** generated in `dist/`.
 - Browser rendering: passed for the homepage, detail-cleaning service page, Bowie service-area page, privacy-policy draft, and custom 404.
 - Representative pages exposed one H1, unique document titles, primary navigation, and the public portal CTA.
+- Preview test-content build: passed with two optimized synthetic WebP concepts, visible synthetic-image captions, pending insurance/profile wording, and a global preview-only disclosure.
+- Default production-safe build: confirmed that synthetic imagery and pending trust language are absent when `PUBLIC_ENABLE_TEST_CONTENT` is false or unset.
 - Deployable archive: `artifacts/Marlboro_Manor_Website_v3_Cloudflare_Pages.zip`.
-- Archive SHA-256: `682d4cc164b149cc8cce0e9fe887306a74b4b506fbbe6fa6fd26de28f8a4b03b`.
+- Archive SHA-256: `7425ea3fa647e8333c4bf49bace49cb6a0b083eaabbda72dc17d9d49e964af70`.
 
 ## Manual release gates
 
