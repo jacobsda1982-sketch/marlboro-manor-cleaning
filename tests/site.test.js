@@ -29,7 +29,7 @@ test('every rendered internal route link resolves', () => {
   pages.forEach(page => {
     const links = [...renderPage(page).matchAll(/href="(\/[^"]*)"/g)].map(match => match[1])
     links.forEach(link => {
-      const clean = link.split('#')[0]
+      const clean = link.split(/[?#]/)[0]
       if (!clean || allowedAssets.has(clean)) return
       assert.ok(routeSet.has(clean), `${page.path} contains broken link ${clean}`)
     })
@@ -75,6 +75,10 @@ test('rendered markup uses encoding-safe HTML entities for UI symbols', () => {
     assert.doesNotMatch(html, /â†’|Â©/)
     assert.doesNotMatch(html, />→</)
   })
+})
+
+test('stylesheet URL is versioned to prevent mixed production assets', () => {
+  assert.match(renderPage(pages.find(page => page.home)), /href="\/styles\.css\?v=3\.0\.1"/)
 })
 
 test('public HTML includes core accessibility and security affordances', () => {
