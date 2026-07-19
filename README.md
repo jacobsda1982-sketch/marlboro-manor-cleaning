@@ -1,10 +1,10 @@
-# Marlboro Manor Cleaning Website v2
+# Marlboro Manor Cleaning Website V3
 
-Premium React/Vite website prepared for deployment through a Git repository to Cloudflare Pages.
+Static, indexable, dependency-free multipage website generated for Cloudflare Pages. The build creates all contracted service, service-area, conversion, and policy routes in `dist/` without requiring client JavaScript for core content.
 
 ## Cloudflare Pages build settings
 
-- Framework preset: Vite
+- Framework preset: None
 - Build command: `npm run build`
 - Build output directory: `dist`
 - Root directory: leave blank
@@ -14,7 +14,9 @@ Premium React/Vite website prepared for deployment through a Git repository to C
 
 ```bash
 npm install
-npm run dev
+npm run check
+npm run build
+npm run preview
 ```
 
 ## Deploy
