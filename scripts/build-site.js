@@ -29,8 +29,9 @@ await writeFile(path.join(dist, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap
 
 const redirects = `/quote ${business.quotePortalUrl} 302\nhttps://www.marlboromanorcleaning.com/* https://marlboromanorcleaning.com/:splat 301\n`
 await writeFile(path.join(dist, '_redirects'), redirects)
+await writeFile(path.join(dist, '_worker.js'), `export default {\n  async fetch(request, env) {\n    const url = new URL(request.url)\n    if (url.hostname === 'www.marlboromanorcleaning.com') {\n      url.hostname = 'marlboromanorcleaning.com'\n      return Response.redirect(url.toString(), 301)\n    }\n    return env.ASSETS.fetch(request)\n  }\n}\n`)
 
-const files = ['index.html', 'styles.css', 'sitemap.xml', 'robots.txt', '_headers', '_redirects']
+const files = ['index.html', 'styles.css', 'sitemap.xml', 'robots.txt', '_headers', '_redirects', '_worker.js']
 const checksums = {}
 for (const file of files) checksums[file] = createHash('sha256').update(await readFile(path.join(dist, file))).digest('hex')
 await writeFile(path.join(dist, 'release-manifest.json'), JSON.stringify({ version: '3.0.0', generatedAt: new Date().toISOString(), routeCount: pages.length, checksums }, null, 2))
