@@ -1,0 +1,9 @@
+{
+  "services": [
+    {"code": "MMC-MAINT", "slug": "maintenance-cleaning", "name": "Manor Maintenance Clean", "startingPrice": 150, "priceLabel": "Starting at $150"},
+    {"code": "MMC-DETAIL", "slug": "detail-cleaning", "name": "Manor Detail Clean", "startingPrice": 275, "priceLabel": "Starting at $275"},
+    {"code": "MMC-MOVEIN", "slug": "move-in-cleaning", "name": "Move-In Cleaning", "startingPrice": 295, "priceLabel": "Starting at $295"},
+    {"code": "MMC-MOVEOUT", "slug": "move-out-cleaning", "name": "Move-Out Cleaning", "startingPrice": 295, "priceLabel": "Starting at $295"}
+  ],
+  "disclaimer": "Prices shown are starting estimates for homes in average condition. Your confirmed quote is based on size, layout, condition, bathrooms, access, frequency, and selected add-ons."
+}

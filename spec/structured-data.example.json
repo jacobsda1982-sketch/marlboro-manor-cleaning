@@ -1,0 +1,17 @@
+{
+  "@context": "https://schema.org",
+  "@type": "HouseCleaning",
+  "name": "Marlboro Manor Cleaning",
+  "url": "https://marlboromanorcleaning.com/",
+  "email": "hello@marlboromanorcleaning.com",
+  "slogan": "Come Home to Immaculate.",
+  "areaServed": [
+    "Upper Marlboro, Maryland",
+    "Bowie, Maryland",
+    "Mitchellville, Maryland",
+    "Largo, Maryland",
+    "Clinton, Maryland"
+  ],
+  "telephone": "ADD_ONLY_WHEN_VERIFIED",
+  "sameAs": []
+}

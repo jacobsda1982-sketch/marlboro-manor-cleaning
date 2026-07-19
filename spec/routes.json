@@ -1,0 +1,27 @@
+{
+  "canonicalOrigin": "https://marlboromanorcleaning.com",
+  "requiredRoutes": [
+    "/",
+    "/services/",
+    "/services/maintenance-cleaning/",
+    "/services/detail-cleaning/",
+    "/services/move-in-cleaning/",
+    "/services/move-out-cleaning/",
+    "/pricing/",
+    "/about/",
+    "/quote/",
+    "/faq/",
+    "/contact/",
+    "/service-areas/upper-marlboro/",
+    "/service-areas/bowie/",
+    "/service-areas/mitchellville/",
+    "/service-areas/largo/",
+    "/service-areas/clinton/",
+    "/privacy/",
+    "/terms/",
+    "/cancellation-policy/",
+    "/satisfaction-policy/",
+    "/accessibility/",
+    "/404.html"
+  ]
+}

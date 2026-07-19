@@ -1,0 +1,7 @@
+{
+  "colors": {"navy": "#1F365F", "gold": "#C7A247", "white": "#FFFFFF", "cream": "#F8F6F2", "lightGray": "#F5F6F7", "charcoal": "#3A3A3A"},
+  "fonts": {"display": "Cormorant Garamond", "body": "Montserrat", "displayFallback": "Georgia, serif", "bodyFallback": "Arial, sans-serif"},
+  "breakpoints": {"sm": "30rem", "md": "48rem", "lg": "64rem", "xl": "80rem"},
+  "contentMaxWidth": "75rem",
+  "minimumTargetSize": "44px"
+}

@@ -1,0 +1,26 @@
+{
+  "name": "Marlboro Manor Cleaning",
+  "tagline": "Come Home to Immaculate.",
+  "domain": "https://marlboromanorcleaning.com",
+  "email": "hello@marlboromanorcleaning.com",
+  "quotesEmail": "quotes@marlboromanorcleaning.com",
+  "phone": null,
+  "hours": {
+    "monday": "08:00-18:00",
+    "tuesday": "08:00-18:00",
+    "wednesday": "08:00-18:00",
+    "thursday": "08:00-18:00",
+    "friday": "08:00-18:00",
+    "saturday": "09:00-15:00",
+    "sunday": "closed"
+  },
+  "serviceAreaOrigin": "Upper Marlboro, Maryland",
+  "serviceRadiusMiles": 25,
+  "claims": {
+    "locallyOwned": {"enabled": true, "evidence": "OWNER_CONFIRMATION"},
+    "insured": {"enabled": false, "evidence": null},
+    "backgroundChecked": {"enabled": false, "evidence": null},
+    "suppliesProvided": {"enabled": false, "evidence": null},
+    "satisfactionPolicy": {"enabled": false, "evidence": null}
+  }
+}

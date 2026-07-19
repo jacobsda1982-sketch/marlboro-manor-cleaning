@@ -1,0 +1,38 @@
+{
+  "requiredConcepts": [
+    "framework configuration",
+    "Cloudflare Pages configuration",
+    "typed business configuration",
+    "content collections or structured page data",
+    "design tokens and global styles",
+    "header/mobile navigation",
+    "footer and mobile conversion bar",
+    "SEO metadata component",
+    "LocalBusiness structured data component",
+    "service and service-area page templates",
+    "policy page template",
+    "responsive image component",
+    "quote portal CTA/fallback component",
+    "404 page",
+    "robots and sitemap",
+    "unit and route contract tests",
+    "accessibility tests",
+    "link checker",
+    "release packaging and verification report"
+  ],
+  "suggested": [
+    "src/components",
+    "src/layouts",
+    "src/pages",
+    "src/content",
+    "src/config",
+    "src/styles",
+    "public/images",
+    "public/icons",
+    "tests/unit",
+    "tests/contracts",
+    "tests/accessibility",
+    "scripts",
+    "artifacts/VERIFICATION.md"
+  ]
+}
