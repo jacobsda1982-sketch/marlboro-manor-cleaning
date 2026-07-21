@@ -36,11 +36,12 @@ test('every rendered internal route link resolves', () => {
   })
 })
 
-test('quote calls to action stay on the branded website and embed the secure portal', () => {
+test('quote calls to action stay on the branded website and launch the secure portal', () => {
   assert.match(business.quotePortalUrl, /^https:\/\/script\.google\.com\/macros\/s\//)
   pages.forEach(page => assert.match(renderPage(page), /href="\/quote\/"/))
   const quote = renderPage(pages.find(page => page.quote))
-  assert.match(quote, /class="quote-frame"/)
+  assert.doesNotMatch(quote, /<iframe class="quote-frame"/)
+  assert.match(quote, /data-conversion="quote_form_launch"/)
   assert.ok(quote.includes(business.quotePortalUrl))
 })
 
