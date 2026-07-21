@@ -105,3 +105,15 @@ test('public HTML includes core accessibility and security affordances', () => {
   })
   assert.match(renderPage(pages.find(page => page.quote)), /rel="noopener noreferrer"/)
 })
+
+test('scheduling is website-hosted, tokenized, and excluded from search discovery', async () => {
+  const page = pages.find(item => item.scheduling)
+  const html = renderPage(page)
+  const script = await readFile(new URL('../src/site/site.js', import.meta.url), 'utf8')
+  assert.equal(page.path, '/schedule/')
+  assert.equal(page.noindex, true)
+  assert.match(html, /data-scheduling-frame/)
+  assert.match(html, /Confirm the proposed time or choose an alternative/)
+  assert.match(script, /mode=schedule&embed=1/)
+  assert.match(script, /\^\[a-f0-9\]\{64\}\$/)
+})

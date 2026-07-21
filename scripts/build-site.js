@@ -24,9 +24,9 @@ for (const page of pages) {
   await writeFile(destination, renderPage(page), 'utf8')
 }
 
-const sitemap = pages.filter(page => page.path !== '/404.html').map(page => `  <url><loc>${business.origin}${page.path}</loc></url>`).join('\n')
+const sitemap = pages.filter(page => page.path !== '/404.html' && !page.noindex).map(page => `  <url><loc>${business.origin}${page.path}</loc></url>`).join('\n')
 await writeFile(path.join(dist, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitemap}\n</urlset>\n`)
-await writeFile(path.join(dist, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${business.origin}/sitemap.xml\n`)
+await writeFile(path.join(dist, 'robots.txt'), `User-agent: *\nAllow: /\nDisallow: /schedule/\nSitemap: ${business.origin}/sitemap.xml\n`)
 
 const redirects = `https://www.marlboromanorcleaning.com/* https://marlboromanorcleaning.com/:splat 301\n`
 await writeFile(path.join(dist, '_redirects'), redirects)

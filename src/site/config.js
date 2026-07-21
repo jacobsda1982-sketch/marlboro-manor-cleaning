@@ -7,6 +7,7 @@ export const business = {
   phoneE164: process.env.PUBLIC_PHONE_E164 || '',
   phoneDisplay: process.env.PUBLIC_PHONE_DISPLAY || '',
   quotePortalUrl: process.env.PUBLIC_QUOTE_PORTAL_URL || 'https://script.google.com/macros/s/AKfycbwJ1V-ZHauLWg3qpIAnw8EsGiiuPnhXOFakBokqO_GUUBrTE08Rhfz44__XdZVDGbkeFA/exec',
+  schedulingPortalBackendUrl: process.env.PUBLIC_SCHEDULING_BACKEND_URL || process.env.PUBLIC_QUOTE_PORTAL_URL || 'https://script.google.com/macros/s/AKfycbwJ1V-ZHauLWg3qpIAnw8EsGiiuPnhXOFakBokqO_GUUBrTE08Rhfz44__XdZVDGbkeFA/exec',
   googleBusinessProfileUrl: process.env.PUBLIC_GOOGLE_BUSINESS_PROFILE_URL || '',
   analyticsId: process.env.PUBLIC_GA_MEASUREMENT_ID || '',
   testContentEnabled: false,
