@@ -39,5 +39,5 @@ await writeFile(path.join(dist, 'server', 'index.js'), `export default {\n  asyn
 const files = ['index.html', 'styles.css', 'site.js', 'public-intake.js', 'sitemap.xml', 'robots.txt', '_headers', '_redirects', '_worker.js']
 const checksums = {}
 for (const file of files) checksums[file] = createHash('sha256').update(await readFile(path.join(dist, file))).digest('hex')
-await writeFile(path.join(dist, 'release-manifest.json'), JSON.stringify({ version: '3.1.0', generatedAt: new Date().toISOString(), routeCount: pages.length, checksums }, null, 2))
+await writeFile(path.join(dist, 'release-manifest.json'), JSON.stringify({ version: '3.3.0', generatedAt: new Date().toISOString(), routeCount: pages.length, checksums }, null, 2))
 console.log(`Built ${pages.length} static routes in dist/`)
