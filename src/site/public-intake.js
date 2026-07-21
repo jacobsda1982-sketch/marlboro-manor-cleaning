@@ -1,27 +1,97 @@
 const $ = (selector, root = document) => root.querySelector(selector)
+const $$ = (selector, root = document) => [...root.querySelectorAll(selector)]
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char])
 const show = (target, message, error = false) => { target.hidden = false; target.className = `form-status${error ? ' form-status-error' : ''}`; target.textContent = message }
+const serviceNames = { 'MMC-MAINT': 'Maintenance clean', 'MMC-DETAIL': 'Detail / deep clean', 'MMC-MOVEIN': 'Move-in clean', 'MMC-MOVEOUT': 'Move-out clean' }
+const frequencyNames = { ONE_TIME: 'One time', WEEKLY: 'Weekly', BIWEEKLY: 'Biweekly', EVERY_FOUR_WEEKS: 'Every four weeks' }
+const addOnNames = { 'AO-OVEN': 'Oven interior', 'AO-FRIDGE': 'Refrigerator interior', 'AO-WINDOWS': 'Interior windows', 'AO-BLINDS': 'Blinds' }
 
 function quotePayload(form) {
   const data = Object.fromEntries(new FormData(form).entries())
-  const addOns = [...form.querySelectorAll('[name="addOn"]:checked')].map(input => ({ code: input.value, quantity: input.value === 'AO-BLINDS' ? Number($('#blindsQuantity')?.value || 1) : 1 }))
+  const addOns = $$('[name="addOn"]:checked', form).map(input => ({ code: input.value, quantity: input.value === 'AO-BLINDS' ? Number($('#blindsQuantity')?.value || 1) : 1 }))
   return { ...data, finishedBasement: data.finishedBasement === 'on', pets: data.pets === 'on', consent: data.consent === 'on', addOns }
 }
 
+function saveDraft(form, currentStep) {
+  const values = {}
+  $$('input,select,textarea', form).forEach(field => {
+    if (!field.name || field.name === 'website' || field.name === 'consent') return
+    if (field.type === 'checkbox' || field.type === 'radio') values[field.name === 'addOn' ? `${field.name}:${field.value}` : field.name] = field.checked
+    else values[field.name] = field.value
+  })
+  localStorage.setItem('mmc-quote-draft', JSON.stringify({ values, currentStep, savedAt: Date.now() }))
+  const state = $('#draft-state'); if (state) state.textContent = 'Progress saved just now.'
+}
+
+function restoreDraft(form) {
+  try {
+    const draft = JSON.parse(localStorage.getItem('mmc-quote-draft') || 'null')
+    if (!draft?.values) return 0
+    $$('input,select,textarea', form).forEach(field => {
+      const key = field.name === 'addOn' ? `${field.name}:${field.value}` : field.name
+      if (!(key in draft.values)) return
+      if (field.type === 'checkbox' || field.type === 'radio') field.checked = Boolean(draft.values[key])
+      else field.value = draft.values[key]
+    })
+    $('#draft-state').textContent = 'Saved progress restored.'
+    return Math.min(Number(draft.currentStep || 0), 2)
+  } catch { return 0 }
+}
+
 function setupQuote() {
-  const form = $('#native-quote-form'), status = $('#quote-status'), button = $('#quote-submit')
+  const form = $('#native-quote-form'), status = $('#quote-status'), submit = $('#quote-submit')
   if (!form) return
-  const blinds = $('#addon-blinds'), quantityWrap = $('#blinds-quantity-wrap'), quantity = $('#blindsQuantity')
-  blinds?.addEventListener('change', () => { quantityWrap.hidden = !blinds.checked; quantity.required = blinds.checked })
+  const steps = $$('.form-step', form), links = $$('[data-step-link]'), next = $('#quote-next'), back = $('#quote-back'), progress = $('#quote-progress')
+  let currentStep = restoreDraft(form)
+
+  const syncConditionalFields = () => {
+    const blinds = $('#addon-blinds'), quantityWrap = $('#blinds-quantity-wrap'), quantity = $('#blindsQuantity')
+    quantityWrap.hidden = !blinds.checked; quantity.required = blinds.checked
+    const pets = $('#pets-toggle'), petHair = $('#pet-hair-wrap')
+    petHair.hidden = !pets.checked
+  }
+  const renderReview = () => {
+    const data = quotePayload(form)
+    const extras = data.addOns.length ? data.addOns.map(item => `${addOnNames[item.code] || item.code}${item.quantity > 1 ? ` (${item.quantity})` : ''}`).join(', ') : 'No add-ons selected'
+    $('#quote-review').innerHTML = `<article><span>Contact</span><strong>${esc(data.name)}</strong><small>${esc(data.email)} · ${esc(data.phone)}</small></article><article><span>Home</span><strong>${esc(data.address)}, ${esc(data.city)}, ${esc(data.state)} ${esc(data.zip)}</strong><small>${esc(data.squareFeet)} sq. ft. · ${esc(data.bedrooms)} bed · ${esc(data.fullBaths)} full bath</small></article><article><span>Service</span><strong>${esc(serviceNames[data.service] || 'Not selected')}</strong><small>${esc(frequencyNames[data.frequency] || data.frequency)} · ${esc(data.condition || '').toLowerCase()} condition</small></article><article><span>Add-ons</span><strong>${esc(extras)}</strong><small>${data.preferredDate ? `Preferred date: ${esc(data.preferredDate)}` : 'Date is flexible'}</small></article>`
+  }
+  const displayStep = (index, focus = false) => {
+    currentStep = Math.max(0, Math.min(index, steps.length - 1))
+    steps.forEach((step, i) => { step.hidden = i !== currentStep })
+    links.forEach((link, i) => { link.classList.toggle('active', i === currentStep); link.classList.toggle('complete', i < currentStep); link.setAttribute('aria-current', i === currentStep ? 'step' : 'false'); link.disabled = i > currentStep })
+    back.hidden = currentStep === 0; next.hidden = currentStep === steps.length - 1; submit.hidden = currentStep !== steps.length - 1
+    progress.style.width = `${(currentStep / (steps.length - 1)) * 100}%`
+    if (currentStep === steps.length - 1) renderReview()
+    saveDraft(form, currentStep)
+    if (focus) $('.step-heading h3', steps[currentStep])?.focus({ preventScroll: true })
+  }
+  const validateStep = () => {
+    const invalid = $$('input,select,textarea', steps[currentStep]).find(field => !field.checkValidity())
+    if (!invalid) return true
+    invalid.reportValidity(); invalid.focus(); return false
+  }
+
+  syncConditionalFields(); displayStep(currentStep)
+  form.addEventListener('input', () => { syncConditionalFields(); saveDraft(form, currentStep) })
+  next.addEventListener('click', () => { if (validateStep()) { displayStep(currentStep + 1, true); $('.native-form-shell').scrollIntoView({ behavior: 'smooth', block: 'start' }) } })
+  back.addEventListener('click', () => displayStep(currentStep - 1, true))
+  links.forEach((link, index) => link.addEventListener('click', () => { if (index <= currentStep) displayStep(index, true) }))
+  $('#clear-quote-draft').addEventListener('click', () => { localStorage.removeItem('mmc-quote-draft'); form.reset(); syncConditionalFields(); displayStep(0, true); $('#draft-state').textContent = 'Form cleared.' })
   form.addEventListener('submit', async event => {
     event.preventDefault(); if (!form.reportValidity()) return
-    button.disabled = true; button.textContent = 'Submitting securely…'; status.hidden = true
+    submit.disabled = true; submit.textContent = 'Submitting securely…'; status.hidden = true
     try {
       const response = await fetch('/api/quote', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(quotePayload(form)) })
       const result = await response.json(); if (!response.ok || !result.ok) throw new Error(result.error || 'Submission failed.')
       form.hidden = true; show(status, `Thank you. Your request was received. Reference: ${result.reference}`); localStorage.removeItem('mmc-quote-draft')
-    } catch (error) { show(status, `${error.message} You may also email quotes@marlboromanorcleaning.com.`, true); button.disabled = false; button.textContent = 'Submit estimate request' }
+    } catch (error) { show(status, `${error.message} You may also email quotes@marlboromanorcleaning.com.`, true); submit.disabled = false; submit.textContent = 'Submit estimate request' }
   })
+}
+
+function formatSlot(option) {
+  const start = new Date(option.start), end = new Date(option.end)
+  if (Number.isNaN(start.getTime())) return { day: option.label, date: option.start, time: option.end }
+  return { day: start.toLocaleDateString('en-US', { weekday: 'long' }), date: start.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }), time: `${start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` }
 }
 
 function setupScheduling() {
@@ -30,14 +100,20 @@ function setupScheduling() {
   if (!token) return show(status, 'Open the secure link from your scheduling email.', true)
   fetch(`/api/scheduling?token=${encodeURIComponent(token)}`).then(async response => {
     const result = await response.json(); if (!response.ok || !result.ok) throw new Error(result.error)
-    if (result.status === 'CONFIRMED') return show(status, 'This appointment has already been confirmed.')
-    root.innerHTML = `<div class="schedule-summary"><strong>${esc(result.serviceName || 'Residential cleaning')}</strong><span>Estimated duration: ${Math.round(Number(result.durationMinutes || 0) / 60 * 10) / 10} hours with ${esc(result.crewSize || 1)} crew member(s)</span></div><form id="schedule-options-form"><fieldset><legend>Choose one available time</legend>${(result.options || []).map((option, index) => `<label class="schedule-option"><input type="radio" name="optionId" value="${esc(option.id)}" ${index === 0 ? 'required' : ''}><span><strong>${esc(option.label)}</strong><small>${esc(option.start)} – ${esc(option.end)}</small></span></label>`).join('')}</fieldset><label>Notes for our scheduling team<textarea name="notes" maxlength="1000"></textarea></label><button class="button button-gold" type="submit">Confirm my selection</button></form>`
-    const form = $('#schedule-options-form')
+    if (result.status === 'CONFIRMED') return show(status, 'This appointment has already been confirmed. Check your email for the appointment details.')
+    status.hidden = true
+    const duration = Math.round(Number(result.durationMinutes || 0) / 6) / 10
+    root.innerHTML = `<div class="schedule-summary"><div><span class="summary-label">Accepted service</span><strong>${esc(result.serviceName || 'Residential cleaning')}</strong></div><div class="summary-metrics"><span><strong>${duration || '—'}</strong> estimated hours</span><span><strong>${esc(result.crewSize || 1)}</strong> crew member${Number(result.crewSize || 1) === 1 ? '' : 's'}</span></div></div><form id="schedule-options-form"><fieldset><legend>Select an available appointment</legend><p class="field-help">Times shown are held only after our team sends the final confirmation.</p><div class="appointment-grid">${(result.options || []).map((option, index) => { const slot = formatSlot(option); return `<label class="schedule-option"><input type="radio" name="optionId" value="${esc(option.id)}" ${index === 0 ? 'required' : ''}><span class="date-tile"><small>${esc(slot.day)}</small><strong>${esc(slot.date)}</strong></span><span class="time-tile"><strong>${esc(slot.time)}</strong><small>${index === 0 ? 'Recommended option' : 'Available appointment'}</small></span>${index === 0 ? '<span class="recommended-badge">Recommended</span>' : ''}</label>` }).join('')}</div></fieldset><details class="schedule-notes"><summary>Add a note for the scheduling team</summary><label><span class="sr-only">Scheduling notes</span><textarea name="notes" maxlength="1000" placeholder="Access, timing, parking, or another scheduling detail"></textarea></label></details><div class="schedule-action"><p id="selection-help">Choose an appointment to continue.</p><button class="button button-gold" type="submit" disabled>Confirm selected time</button></div></form>`
+    const form = $('#schedule-options-form'), button = $('button[type="submit"]', form), help = $('#selection-help')
+    $$('[name="optionId"]', form).forEach(input => input.addEventListener('change', () => { $$('.schedule-option', form).forEach(card => card.classList.toggle('selected', $('input', card).checked)); button.disabled = false; help.textContent = 'We will email your final confirmation after review.' }))
     form.addEventListener('submit', async event => {
-      event.preventDefault(); const button = form.querySelector('button'); button.disabled = true
+      event.preventDefault(); button.disabled = true; button.textContent = 'Confirming…'
       const data = Object.fromEntries(new FormData(form).entries())
-      try { const response = await fetch('/api/scheduling', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, ...data }) }); const output = await response.json(); if (!response.ok || !output.ok) throw new Error(output.error); form.hidden = true; show(status, output.message) }
-      catch (error) { button.disabled = false; show(status, error.message || String(error), true) }
+      try {
+        const response = await fetch('/api/scheduling', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, ...data }) }); const output = await response.json(); if (!response.ok || !output.ok) throw new Error(output.error)
+        const selected = $('input[name="optionId"]:checked', form)?.closest('.schedule-option'); const recap = selected ? selected.innerText.replace('Recommended', '').trim() : ''
+        root.innerHTML = `<div class="schedule-success"><span aria-hidden="true">&#10003;</span><p class="eyebrow">Selection received</p><h3>${esc(output.message || 'Your appointment choice is on its way to our team.')}</h3><p>${esc(recap)}</p><div><strong>What happens next</strong><small>Watch for a confirmation from scheduling@marlboromanorcleaning.com.</small></div></div>`
+      } catch (error) { button.disabled = false; button.textContent = 'Confirm selected time'; show(status, error.message || String(error), true) }
     })
   }).catch(error => show(status, `${error.message || error} Reply to your scheduling email for assistance.`, true))
 }
