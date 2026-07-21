@@ -68,8 +68,8 @@ function pageBody(page) {
   if (page.services) return `${hero(page)}<section class="section"><div class="container">${serviceCards()}<p class="notice">${esc(pricingDisclaimer)}</p></div></section>`
   if (page.pricing) return `${hero(page)}<section class="section"><div class="container">${pricingTable()}</div></section>`
   if (page.faq) return `${hero(page)}<section class="section"><div class="container content-narrow">${faq()}</div></section>`
-  if (page.quote) return `${hero(page)}${quoteExperience()}`
-  if (page.scheduling) return `${hero(page)}${schedulingExperience()}`
+  if (page.quote) return `<h1 class="sr-only">${esc(page.h1)}</h1>${quoteExperience()}`
+  if (page.scheduling) return `<h1 class="sr-only">${esc(page.h1)}</h1>${schedulingExperience()}`
   if (page.contact) return `${hero(page)}<section class="section"><div class="container contact-grid"><article class="card"><h2>New estimate</h2><p>Use the guided estimate form so we receive the property and scope details needed to help.</p>${quoteLink('Get My Estimate')}</article><article class="card"><h2>General question</h2><p><a href="mailto:${esc(business.supportEmail)}" data-conversion="email">${esc(business.supportEmail)}</a></p>${business.phoneDisplay ? `<p><a href="tel:${esc(business.phoneE164)}" data-conversion="phone">${esc(business.phoneDisplay)}</a></p>` : ''}<p>${esc(business.hours)}</p></article></div></section>`
   return `${hero(page)}${page.price ? `<section class="price-banner"><div class="container"><strong>Starting at ${esc(page.price)}</strong><p>${esc(pricingDisclaimer)}</p></div></section>` : ''}${sections(page)}${page.notFound ? '' : `<section class="section"><div class="container final-cta"><div><p class="eyebrow">Ready to begin?</p><h2>Request a personalized estimate for your home.</h2></div>${quoteLink('Get My Estimate')}</div></section>`}`
 }
