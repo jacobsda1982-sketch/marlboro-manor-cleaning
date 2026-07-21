@@ -36,13 +36,14 @@ test('every rendered internal route link resolves', () => {
   })
 })
 
-test('quote calls to action stay on the branded website and launch the secure portal', () => {
-  assert.match(business.quotePortalUrl, /^https:\/\/script\.google\.com\/macros\/s\//)
+test('quote calls to action stay on the branded website and render the native secure form', () => {
+  assert.equal(business.quotePortalUrl, '/quote/')
   pages.forEach(page => assert.match(renderPage(page), /href="\/quote\/"/))
   const quote = renderPage(pages.find(page => page.quote))
   assert.doesNotMatch(quote, /<iframe class="quote-frame"/)
-  assert.match(quote, /data-conversion="quote_form_launch"/)
-  assert.ok(quote.includes(business.quotePortalUrl))
+  assert.match(quote, /id="native-quote-form"/)
+  assert.match(quote, /id="addon-blinds"/)
+  assert.match(quote, /id="blindsQuantity"/)
 })
 
 test('unverified trust claims and telephone schema remain disabled', () => {
@@ -104,17 +105,17 @@ test('public HTML includes core accessibility and security affordances', () => {
     assert.match(html, /<main id="main">/)
     assert.match(html, /aria-label="Primary"/)
   })
-  assert.match(renderPage(pages.find(page => page.quote)), /rel="noopener noreferrer"/)
+  assert.match(renderPage(pages.find(page => page.quote)), /aria-hidden="true"/)
 })
 
 test('scheduling is website-hosted, tokenized, and excluded from search discovery', async () => {
   const page = pages.find(item => item.scheduling)
   const html = renderPage(page)
-  const script = await readFile(new URL('../src/site/site.js', import.meta.url), 'utf8')
+  const script = await readFile(new URL('../src/site/public-intake.js', import.meta.url), 'utf8')
   assert.equal(page.path, '/schedule/')
   assert.equal(page.noindex, true)
-  assert.match(html, /data-scheduling-frame/)
+  assert.match(html, /id="native-scheduling"/)
   assert.match(html, /Confirm the proposed time or choose an alternative/)
-  assert.match(script, /mode=schedule&embed=1/)
-  assert.match(script, /\^\[a-f0-9\]\{64\}\$/)
+  assert.match(script, /\/api\/scheduling\?token=/)
+  assert.match(script, /new URLSearchParams\(location\.search\)/)
 })
