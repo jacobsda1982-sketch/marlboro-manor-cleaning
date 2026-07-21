@@ -12,14 +12,14 @@ function quotePayload(form) {
   return { ...data, finishedBasement: data.finishedBasement === 'on', pets: data.pets === 'on', consent: data.consent === 'on', addOns }
 }
 
-function saveDraft(form, currentStep) {
+function saveDraft(form) {
   const values = {}
   $$('input,select,textarea', form).forEach(field => {
     if (!field.name || field.name === 'website' || field.name === 'consent') return
     if (field.type === 'checkbox' || field.type === 'radio') values[field.name === 'addOn' ? `${field.name}:${field.value}` : field.name] = field.checked
     else values[field.name] = field.value
   })
-  localStorage.setItem('mmc-quote-draft', JSON.stringify({ values, currentStep, savedAt: Date.now() }))
+  localStorage.setItem('mmc-quote-draft', JSON.stringify({ values, savedAt: Date.now() }))
   const state = $('#draft-state'); if (state) state.textContent = 'Progress saved just now.'
 }
 
@@ -34,15 +34,14 @@ function restoreDraft(form) {
       else field.value = draft.values[key]
     })
     $('#draft-state').textContent = 'Saved progress restored.'
-    return Math.min(Number(draft.currentStep || 0), 2)
-  } catch { return 0 }
+    return true
+  } catch { return false }
 }
 
 function setupQuote() {
   const form = $('#native-quote-form'), status = $('#quote-status'), submit = $('#quote-submit')
   if (!form) return
-  const steps = $$('.form-step', form), links = $$('[data-step-link]'), next = $('#quote-next'), back = $('#quote-back'), progress = $('#quote-progress')
-  let currentStep = restoreDraft(form)
+  restoreDraft(form)
 
   const syncConditionalFields = () => {
     const blinds = $('#addon-blinds'), quantityWrap = $('#blinds-quantity-wrap'), quantity = $('#blindsQuantity')
@@ -50,33 +49,28 @@ function setupQuote() {
     const pets = $('#pets-toggle'), petHair = $('#pet-hair-wrap')
     petHair.hidden = !pets.checked
   }
-  const renderReview = () => {
+  const renderSummary = () => {
     const data = quotePayload(form)
     const extras = data.addOns.length ? data.addOns.map(item => `${addOnNames[item.code] || item.code}${item.quantity > 1 ? ` (${item.quantity})` : ''}`).join(', ') : 'No add-ons selected'
-    $('#quote-review').innerHTML = `<article><span>Contact</span><strong>${esc(data.name)}</strong><small>${esc(data.email)} · ${esc(data.phone)}</small></article><article><span>Home</span><strong>${esc(data.address)}, ${esc(data.city)}, ${esc(data.state)} ${esc(data.zip)}</strong><small>${esc(data.squareFeet)} sq. ft. · ${esc(data.bedrooms)} bed · ${esc(data.fullBaths)} full bath</small></article><article><span>Service</span><strong>${esc(serviceNames[data.service] || 'Not selected')}</strong><small>${esc(frequencyNames[data.frequency] || data.frequency)} · ${esc(data.condition || '').toLowerCase()} condition</small></article><article><span>Add-ons</span><strong>${esc(extras)}</strong><small>${data.preferredDate ? `Preferred date: ${esc(data.preferredDate)}` : 'Date is flexible'}</small></article>`
-  }
-  const displayStep = (index, focus = false) => {
-    currentStep = Math.max(0, Math.min(index, steps.length - 1))
-    steps.forEach((step, i) => { step.hidden = i !== currentStep })
-    links.forEach((link, i) => { link.classList.toggle('active', i === currentStep); link.classList.toggle('complete', i < currentStep); link.setAttribute('aria-current', i === currentStep ? 'step' : 'false'); link.disabled = i > currentStep })
-    back.hidden = currentStep === 0; next.hidden = currentStep === steps.length - 1; submit.hidden = currentStep !== steps.length - 1
-    progress.style.width = `${(currentStep / (steps.length - 1)) * 100}%`
-    if (currentStep === steps.length - 1) renderReview()
-    saveDraft(form, currentStep)
-    if (focus) $('.step-heading h3', steps[currentStep])?.focus({ preventScroll: true })
-  }
-  const validateStep = () => {
-    const invalid = $$('input,select,textarea', steps[currentStep]).find(field => !field.checkValidity())
-    if (!invalid) return true
-    invalid.reportValidity(); invalid.focus(); return false
+    const required = $$('[required]', form).filter(field => field.type !== 'radio' || field.checked || !$$(`[name="${field.name}"]:checked`, form).length)
+    const complete = required.filter(field => field.type === 'checkbox' ? field.checked : field.type === 'radio' ? $$(`[name="${field.name}"]:checked`, form).length : String(field.value).trim()).length
+    const percent = Math.min(100, Math.round((complete / Math.max(required.length, 1)) * 100))
+    $('#completion-ring').style.setProperty('--progress', percent)
+    $('#completion-percent').textContent = `${percent}%`
+    $('#completion-title').textContent = percent === 100 ? 'Ready to submit' : percent > 55 ? 'Almost there' : percent > 20 ? 'Great progress' : 'Let’s get started'
+    $('#completion-copy').textContent = percent === 100 ? 'Review your choices, agree to the contact terms, and send your request.' : 'Complete the remaining required details to prepare your estimate.'
+    const items = []
+    if (data.service) items.push(`<div><span>Service</span><strong>${esc(serviceNames[data.service])}</strong></div>`)
+    if (data.frequency) items.push(`<div><span>Frequency</span><strong>${esc(frequencyNames[data.frequency])}</strong></div>`)
+    if (data.squareFeet) items.push(`<div><span>Home</span><strong>${esc(data.squareFeet)} sq. ft. · ${esc(data.bedrooms || '—')} bed</strong></div>`)
+    if (data.city) items.push(`<div><span>Location</span><strong>${esc(data.city)}, ${esc(data.state || 'MD')} ${esc(data.zip || '')}</strong></div>`)
+    if (data.addOns.length) items.push(`<div><span>Add-ons</span><strong>${esc(extras)}</strong></div>`)
+    $('#live-quote-summary').innerHTML = `<h3>Your request</h3>${items.length ? items.join('') : '<p class="empty-summary">Selections will appear here as you complete the form.</p>'}`
   }
 
-  syncConditionalFields(); displayStep(currentStep)
-  form.addEventListener('input', () => { syncConditionalFields(); saveDraft(form, currentStep) })
-  next.addEventListener('click', () => { if (validateStep()) { displayStep(currentStep + 1, true); $('.native-form-shell').scrollIntoView({ behavior: 'smooth', block: 'start' }) } })
-  back.addEventListener('click', () => displayStep(currentStep - 1, true))
-  links.forEach((link, index) => link.addEventListener('click', () => { if (index <= currentStep) displayStep(index, true) }))
-  $('#clear-quote-draft').addEventListener('click', () => { localStorage.removeItem('mmc-quote-draft'); form.reset(); syncConditionalFields(); displayStep(0, true); $('#draft-state').textContent = 'Form cleared.' })
+  syncConditionalFields(); renderSummary()
+  form.addEventListener('input', () => { syncConditionalFields(); saveDraft(form); renderSummary() })
+  $('#clear-quote-draft').addEventListener('click', () => { localStorage.removeItem('mmc-quote-draft'); form.reset(); syncConditionalFields(); renderSummary(); $('#draft-state').textContent = 'Form cleared.' })
   form.addEventListener('submit', async event => {
     event.preventDefault(); if (!form.reportValidity()) return
     submit.disabled = true; submit.textContent = 'Submitting securely…'; status.hidden = true
