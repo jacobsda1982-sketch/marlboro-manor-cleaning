@@ -2,57 +2,83 @@ import { services } from './config.js'
 
 const servicePages = services.map(service => ({
   path: `/services/${service.slug}/`,
-  title: `${service.name} in Prince George’s County`,
-  description: `${service.summary} Request a reviewed estimate from Marlboro Manor Cleaning.`,
+  title: `${service.searchName} in Upper Marlboro, MD`,
+  description: `${service.summary} Request a personalized estimate from Marlboro Manor Cleaning.`,
   eyebrow: 'Residential cleaning service',
-  h1: service.name,
+  h1: `${service.searchName} with manor-level care.`,
   intro: service.summary,
+  service,
   sections: [
-    ['What this service includes', service.includes],
-    ['A clear, reviewed scope', ['Tell us about the home, condition, access, and priorities.', 'We prepare an estimate based on the details you provide.', 'A team member reviews the scope and price before anything is sent.']],
-    ['What affects your estimate', ['Home size and layout', 'Current condition and buildup', 'Bathrooms, floors, access, frequency, and add-ons']]
+    ['What is included', service.includes],
+    ['A clear path from estimate to service', ['Tell us about the home, access, priorities, and preferred timing.', 'We review the requested scope and prepare a personalized estimate.', 'You approve the scope and scheduling plan before service begins.']],
+    ['What affects the estimate', ['Home size, layout, and number of levels', 'Current condition, buildup, pets, and specialty surfaces', 'Bathrooms, access, service frequency, and selected add-ons']]
   ],
   price: service.price
 }))
 
 const locationCopy = {
-  'upper-marlboro': ['Upper Marlboro', 'Homes in and around Upper Marlboro are at the center of our service area. We review the full address for every request before confirming availability.', 'Large floor plans, multiple levels, finished basements, and longer driveways can affect timing and scope.'],
-  bowie: ['Bowie', 'We serve qualifying Bowie addresses within our approved radius and confirm travel distance through the quote portal.', 'Bowie homes vary widely in age, layout, and square footage, so estimates are based on the property rather than a one-size price.'],
-  mitchellville: ['Mitchellville', 'Marlboro Manor Cleaning provides reviewed residential cleaning estimates for qualifying Mitchellville homes.', 'Detailed first visits can establish a clear baseline before moving to a recurring maintenance schedule.'],
-  largo: ['Largo', 'Largo homeowners can request recurring, detail, and move-related cleaning through our address-verified quote process.', 'Access instructions, parking, building rules, and elevator timing should be included when relevant.'],
-  clinton: ['Clinton', 'We review Clinton addresses individually against our 25-mile service radius before preparing an estimate.', 'Home condition, finished space, pets, and selected add-ons help determine a realistic service scope.']
+  'upper-marlboro': {
+    name: 'Upper Marlboro',
+    title: 'Upper Marlboro House Cleaning Services',
+    intro: 'Marlboro Manor Cleaning provides recurring, detailed, and move-related residential cleaning for qualifying homes throughout Upper Marlboro.',
+    local: ['BeechTree, Marlton, Perrywood, Brock Hall, and surrounding communities', 'Large floor plans, finished basements, multiple levels, and pet hair can affect service time', 'Our quote form verifies each full address within the standard 25-mile service area'],
+    faq: 'Enter the complete Upper Marlboro property address in the estimate form. The service-area check occurs before submission.'
+  },
+  bowie: {
+    name: 'Bowie', title: 'House Cleaning in Bowie, MD',
+    intro: 'Bowie homeowners can request dependable recurring service, a detailed reset, or move-related cleaning through Marlboro Manor Cleaning.',
+    local: ['Serving qualifying addresses across established Bowie neighborhoods and newer communities', 'Home age, finished space, parking, and layout are considered in every estimate', 'Recurring service can follow a detail clean when the home needs a stronger starting baseline'],
+    faq: 'Yes, qualifying Bowie addresses inside the service radius are welcome. Availability is confirmed with the estimate.'
+  },
+  mitchellville: {
+    name: 'Mitchellville', title: 'House Cleaning in Mitchellville, MD',
+    intro: 'Marlboro Manor Cleaning offers thoughtful residential cleaning for qualifying Mitchellville homes, with clear scopes and dependable communication.',
+    local: ['Recurring maintenance for busy households', 'Detail cleaning for first visits, seasonal resets, or accumulated buildup', 'Move-in and move-out cleaning for vacant properties'],
+    faq: 'Many recurring customers begin with a Manor Detail Clean when the home has not been professionally maintained recently.'
+  },
+  largo: {
+    name: 'Largo', title: 'House Cleaning in Largo, MD',
+    intro: 'Largo residents can request recurring, detail, move-in, and move-out cleaning for qualifying homes and residences.',
+    local: ['Building access, parking instructions, elevators, and concierge requirements should be shared in advance', 'The estimate accounts for bathrooms, finished space, condition, and selected add-ons', 'Every appointment is confirmed before a service date is reserved'],
+    faq: 'Yes. Include parking, elevator, building-entry, and concierge instructions when requesting an estimate.'
+  },
+  clinton: {
+    name: 'Clinton', title: 'House Cleaning in Clinton, MD',
+    intro: 'Marlboro Manor Cleaning serves qualifying Clinton homes with recurring care, detailed cleaning, and move-related services.',
+    local: ['Full addresses are verified against the standard service radius', 'Finished basements, pets, specialty surfaces, and current condition should be disclosed', 'A personalized estimate defines the scope before scheduling'],
+    faq: 'Submit the full property address. Homes within the service radius proceed to estimate review and availability confirmation.'
+  }
 }
 
-const locationPages = Object.entries(locationCopy).map(([slug, [name, intro, detail]]) => ({
+const locationPages = Object.entries(locationCopy).map(([slug, item]) => ({
   path: `/service-areas/${slug}/`,
-  title: `Residential Cleaning in ${name}, MD`,
-  description: `Request a reviewed residential cleaning estimate for qualifying homes in ${name}, Maryland.`,
-  eyebrow: 'Service area',
-  h1: `Home cleaning in ${name}, Maryland`,
-  intro,
+  title: item.title,
+  description: `Residential cleaning in ${item.name}, Maryland. Explore recurring, deep, move-in, and move-out services and request an estimate.`,
+  eyebrow: 'Prince George\'s County service area',
+  h1: item.title,
+  intro: item.intro,
+  location: item.name,
   sections: [
-    [`Cleaning services available in ${name}`, ['Recurring maintenance cleaning', 'Detailed first-time or seasonal cleaning', 'Move-in and move-out cleaning']],
-    ['Local quote considerations', [detail, 'Every address is checked before the request enters the private quote workflow.', 'Submitting a request does not guarantee availability or reserve a date.']],
-    [`Common ${name} question`, [`How do I know whether my address qualifies? Enter the full property address in the quote portal. It measures the address against the approved service radius before accepting the request.`]]
+    [`Cleaning services available in ${item.name}`, ['Recurring house cleaning', 'Detailed and first-time cleaning', 'Move-in and move-out cleaning']],
+    [`What ${item.name} homeowners should know`, item.local],
+    [`A common ${item.name} question`, [item.faq]]
   ]
 }))
 
-const policyNotice = 'Draft policy for customer review. This content is not legal advice and should receive professional review before publication as final terms.'
-
 export const pages = [
-  { path: '/', title: 'Premium Home Cleaning in Upper Marlboro, MD', description: 'Recurring, detail, and move-related residential cleaning with clear communication and reviewed estimates.', eyebrow: 'Locally owned residential cleaning', h1: 'Come Home to Immaculate.', intro: 'Recurring, detailed, and move-related home cleaning delivered with exceptional care and dependable communication.', home: true },
-  { path: '/services/', title: 'Residential Cleaning Services', description: 'Compare recurring maintenance, detail, move-in, and move-out cleaning services.', eyebrow: 'Services', h1: 'A thoughtful clean for every chapter of home life.', intro: 'Choose the service that best matches your home and priorities. Every estimate is reviewed before it is sent.', services: true },
+  { path: '/', title: 'House Cleaning in Upper Marlboro, MD', description: 'Premium recurring, deep, move-in, and move-out house cleaning in Upper Marlboro and nearby Prince George\'s County communities.', eyebrow: 'Local residential cleaning', h1: 'Come Home to Immaculate.', intro: 'Premium house cleaning in Upper Marlboro, delivered with thoughtful care, dependable communication, and a scope tailored to your home.', home: true },
+  { path: '/services/', title: 'Residential Cleaning Services in Upper Marlboro', description: 'Compare recurring, deep, move-in, and move-out cleaning services from Marlboro Manor Cleaning.', eyebrow: 'Residential cleaning services', h1: 'A thoughtful clean for every chapter of home life.', intro: 'Choose recurring care, a detailed reset, or move-related service. We tailor the scope to the home and confirm the plan before work begins.', services: true },
   ...servicePages,
-  { path: '/pricing/', title: 'Cleaning Prices and Quote Expectations', description: 'Review starting prices and the factors used to prepare a confirmed residential cleaning estimate.', eyebrow: 'Pricing', h1: 'Clear starting prices. A quote tailored to your home.', intro: 'Starting prices help set expectations while your confirmed quote reflects the actual property and requested scope.', pricing: true },
-  { path: '/about/', title: 'About Marlboro Manor Cleaning', description: 'Learn how Marlboro Manor Cleaning approaches residential service, communication, and quality.', eyebrow: 'About', h1: 'Local care supported by dependable systems.', intro: 'Marlboro Manor Cleaning was created to give homeowners a polished experience from the first inquiry through the final walkthrough.', sections: [['Our operating principles', ['Clear expectations before service', 'Documented scope and careful communication', 'Owner-reviewed estimates rather than automatic promises']], ['What we will not claim', ['We do not publish unverified certifications, insurance claims, reviews, employee profiles, or project results.', 'Operational proof will be added only when it is authentic, permissioned, and documented.']]] },
-  { path: '/quote/', title: 'Request a Home Cleaning Estimate', description: 'Open the secure Marlboro Manor Cleaning quote portal to request a reviewed residential cleaning estimate.', eyebrow: 'Request an estimate', h1: 'Tell us about your home.', intro: 'The secure five-step quote portal verifies the service-area address and collects the details needed to prepare an estimate.', quote: true },
-  { path: '/faq/', title: 'Residential Cleaning FAQ', description: 'Answers about estimates, supplies, access, service scope, pricing, and scheduling.', eyebrow: 'Frequently asked questions', h1: 'Helpful answers before you request an estimate.', intro: 'If your question is not covered here, email us and we will be happy to clarify.', faq: true },
-  { path: '/contact/', title: 'Contact Marlboro Manor Cleaning', description: 'Contact Marlboro Manor Cleaning about residential cleaning in the Upper Marlboro service area.', eyebrow: 'Contact', h1: 'How can we help?', intro: 'Use the quote portal for a new estimate or email us with a general question.', contact: true },
+  { path: '/pricing/', title: 'House Cleaning Prices in Upper Marlboro', description: 'Review starting house-cleaning prices and the factors used to prepare your personalized Marlboro Manor Cleaning estimate.', eyebrow: 'Clear pricing expectations', h1: 'Starting prices with no mystery about the next step.', intro: 'Use our starting prices to plan, then tell us about the home for a personalized estimate.', pricing: true },
+  { path: '/about/', title: 'About Marlboro Manor Cleaning', description: 'Meet the locally owned Upper Marlboro cleaning company focused on white-glove care, communication, and reliable systems.', eyebrow: 'Locally owned in Upper Marlboro', h1: 'White-glove care, grounded in the community.', intro: 'Marlboro Manor Cleaning was created to give local homeowners a polished, dependable experience from the first inquiry through the final walkthrough.', sections: [['Our service principles', ['Respect the home, the customer, and the agreed scope', 'Communicate clearly before, during, and after service', 'Use documented checklists and quality controls for consistency']], ['A modern local company', ['Thoughtful automation keeps communication responsive and overhead lean', 'People remain accountable for service quality and customer relationships', 'Claims, reviews, and results are published only when they are authentic and permissioned']]] },
+  { path: '/quote/', title: 'Request a House Cleaning Estimate', description: 'Request a personalized house-cleaning estimate for a qualifying property in the Marlboro Manor Cleaning service area.', eyebrow: 'Takes about five minutes', h1: 'Tell us about your home.', intro: 'Share the property and service details once. We will verify the address, review the scope, and follow up with your estimate.', quote: true },
+  { path: '/faq/', title: 'House Cleaning FAQ', description: 'Answers about Marlboro Manor Cleaning estimates, access, scope, pricing, scheduling, pets, and service areas.', eyebrow: 'Frequently asked questions', h1: 'Helpful answers before your first cleaning.', intro: 'Learn how estimates, scheduling, access, pricing, and service scope work.', faq: true },
+  { path: '/contact/', title: 'Contact Marlboro Manor Cleaning', description: 'Contact Marlboro Manor Cleaning about residential cleaning in Upper Marlboro and nearby communities.', eyebrow: 'We are here to help', h1: 'Start with the right conversation.', intro: 'Request an estimate for a new cleaning or email us with a general service question.', contact: true },
   ...locationPages,
-  { path: '/privacy/', title: 'Privacy Policy', description: 'Draft privacy policy for the Marlboro Manor Cleaning website and quote portal.', eyebrow: 'Policy draft', h1: 'Privacy policy', intro: policyNotice, sections: [['Information handled by this website', ['This marketing website does not directly collect quote form data.', 'Quote requests are handled by the separate Marble Quote Portal and its configured Google Workspace services.', 'No advertising or analytics trackers are enabled by default.']], ['Contact and retention', ['Contact us to ask about information associated with a quote request.', 'Retention practices should be reviewed and approved before this draft becomes final.']]] },
-  { path: '/terms/', title: 'Website and Service Terms', description: 'Draft terms governing use of the Marlboro Manor Cleaning website and estimate process.', eyebrow: 'Policy draft', h1: 'Website and service terms', intro: policyNotice, sections: [['Estimate requests', ['Submitting information does not create an appointment, guarantee availability, or authorize a charge.', 'A quote becomes actionable only after owner review and customer communication.']], ['Website information', ['Starting prices and service descriptions may change.', 'Final scope and price are confirmed separately before work begins.']]] },
-  { path: '/cancellation-policy/', title: 'Cancellation Policy', description: 'Draft cancellation and access policy for Marlboro Manor Cleaning customers.', eyebrow: 'Policy draft', h1: 'Cancellation policy', intro: policyNotice, sections: [['Notice and access', ['We request at least 48 hours notice when plans change.', 'Late cancellation, lockout, or no-access fees may apply only when disclosed and agreed in advance.']], ['Date changes', ['Contact us as soon as possible to discuss rescheduling.', 'Availability for a replacement date is not guaranteed.']]] },
-  { path: '/satisfaction-policy/', title: 'Satisfaction Response Policy', description: 'Draft process for reporting service concerns to Marlboro Manor Cleaning.', eyebrow: 'Policy draft', h1: 'Satisfaction response policy', intro: policyNotice, sections: [['Report a concern', ['Contact us within 24 hours with details and photos where practical.', 'We will review the agreed scope and the affected area before proposing a response.']], ['Fair review', ['This draft does not promise a specific remedy in every circumstance.', 'Any approved remedy applies to the documented service concern.']]] },
-  { path: '/accessibility/', title: 'Accessibility Statement', description: 'Accessibility commitment and assistance contact for Marlboro Manor Cleaning.', eyebrow: 'Accessibility', h1: 'A website designed for more people.', intro: 'We aim for WCAG 2.2 AA and continually improve keyboard use, contrast, reflow, semantics, and assistive-technology support.', sections: [['Need assistance?', ['Email hello@marlboromanorcleaning.com and describe the page, task, and format that would help.', 'We welcome specific feedback and will review accessibility barriers promptly.']]] },
-  { path: '/404.html', title: 'Page Not Found', description: 'The requested Marlboro Manor Cleaning page could not be found.', eyebrow: '404', h1: 'That page is not here.', intro: 'The address may have changed. Return home, explore services, or request an estimate.', notFound: true }
+  { path: '/privacy/', title: 'Privacy Policy', description: 'How Marlboro Manor Cleaning handles website, estimate, and customer information.', eyebrow: 'Customer information', h1: 'Privacy policy', intro: 'Last updated July 20, 2026. This policy explains the information used to prepare estimates, communicate with customers, and operate the website.', sections: [['Information we collect and use', ['Estimate requests may include contact, property, service, access, and optional photo information.', 'We use this information to verify service eligibility, prepare estimates, schedule work, communicate, and maintain business records.', 'Payment information is handled by the designated payment processor and is not stored in this marketing website.']], ['Retention and requests', ['Business records are retained only as reasonably needed for operations, accounting, security, and legal obligations.', 'Email hello@marlboromanorcleaning.com to ask about information associated with your request.', 'Analytics are enabled only when configured and are used to understand website and estimate-form performance.']]] },
+  { path: '/terms/', title: 'Website and Service Terms', description: 'Terms governing Marlboro Manor Cleaning website use, estimates, scheduling, and service information.', eyebrow: 'Clear expectations', h1: 'Website and service terms', intro: 'Last updated July 20, 2026. These terms describe the estimate and scheduling process.', sections: [['Estimate requests', ['Submitting information does not create an appointment, guarantee availability, or authorize a charge.', 'The final service scope, price, and date are confirmed separately before work begins.', 'Starting prices and service descriptions may change until an estimate is accepted.']], ['Appropriate website use', ['Do not submit false, harmful, or unauthorized information.', 'Automated abuse, scraping, interference, and attempts to bypass service-area or security controls are prohibited.']]] },
+  { path: '/cancellation-policy/', title: 'Cancellation and Rescheduling Policy', description: 'Marlboro Manor Cleaning cancellation, rescheduling, lockout, and property-access expectations.', eyebrow: 'Plans sometimes change', h1: 'Cancellation and rescheduling policy', intro: 'Please provide at least 48 hours notice when an appointment needs to change.', sections: [['Notice and property access', ['Contact us as soon as possible to request a new date.', 'Replacement dates depend on availability and are not guaranteed.', 'Any late-cancellation, lockout, or no-access fee will be disclosed before the appointment and reflected in the accepted service terms.']], ['Exceptional circumstances', ['We review emergencies, severe weather, and documented exceptional circumstances fairly.', 'Marlboro Manor Cleaning may reschedule when safe or effective service is not reasonably possible.']]] },
+  { path: '/satisfaction-policy/', title: 'Satisfaction Response Policy', description: 'How Marlboro Manor Cleaning reviews and responds to documented service concerns.', eyebrow: 'A fair response process', h1: 'Satisfaction response policy', intro: 'If something within the agreed scope was missed, contact us within 24 hours so we can review it promptly.', sections: [['Report a concern', ['Email details and photos where practical within 24 hours of service.', 'We compare the concern with the accepted scope, checklist, and available service records.', 'When appropriate, we will propose a reasonable correction or other response.']], ['Policy limits', ['The policy applies to the documented service concern and accepted scope.', 'It does not cover pre-existing damage, excluded work, inaccessible areas, or conditions that changed after service.']]] },
+  { path: '/accessibility/', title: 'Accessibility Statement', description: 'Marlboro Manor Cleaning website accessibility commitment and assistance contact.', eyebrow: 'Access for more people', h1: 'A website designed to work for more customers.', intro: 'We target WCAG 2.2 AA and continually improve keyboard access, contrast, reflow, labels, and assistive-technology support.', sections: [['Need assistance?', ['Email hello@marlboromanorcleaning.com and describe the page, task, and format that would help.', 'We welcome specific feedback and review reported accessibility barriers promptly.']]] },
+  { path: '/404.html', title: 'Page Not Found', description: 'The requested Marlboro Manor Cleaning page could not be found.', eyebrow: '404', h1: 'That page is not here.', intro: 'Return home, explore cleaning services, or request an estimate.', notFound: true }
 ]

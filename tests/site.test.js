@@ -25,20 +25,23 @@ test('metadata, canonical URLs, and H1 content are unique', () => {
 })
 
 test('every rendered internal route link resolves', () => {
-  const allowedAssets = new Set(['/favicon.svg', '/styles.css'])
+  const allowedAssets = new Set(['/favicon.svg', '/styles.css', '/site.js'])
   pages.forEach(page => {
     const links = [...renderPage(page).matchAll(/href="(\/[^"]*)"/g)].map(match => match[1])
     links.forEach(link => {
       const clean = link.split(/[?#]/)[0]
-      if (!clean || allowedAssets.has(clean)) return
+      if (!clean || allowedAssets.has(clean) || clean.startsWith('/images/')) return
       assert.ok(routeSet.has(clean), `${page.path} contains broken link ${clean}`)
     })
   })
 })
 
-test('quote calls to action use the separate public portal', () => {
+test('quote calls to action stay on the branded website and embed the secure portal', () => {
   assert.match(business.quotePortalUrl, /^https:\/\/script\.google\.com\/macros\/s\//)
-  pages.forEach(page => assert.ok(renderPage(page).includes(business.quotePortalUrl)))
+  pages.forEach(page => assert.match(renderPage(page), /href="\/quote\/"/))
+  const quote = renderPage(pages.find(page => page.quote))
+  assert.match(quote, /class="quote-frame"/)
+  assert.ok(quote.includes(business.quotePortalUrl))
 })
 
 test('unverified trust claims and telephone schema remain disabled', () => {
@@ -54,11 +57,10 @@ test('unverified trust claims and telephone schema remain disabled', () => {
   })
 })
 
-test('homepage permanently includes disclosed synthetic brand imagery', () => {
+test('homepage discloses concept imagery without prototype language', () => {
   const home = renderPage(pages.find(page => page.path === '/'))
-  assert.match(home, /AI-generated Marlboro Manor brand concept/)
-  assert.match(home, /not a customer home or completed job/)
-  assert.match(home, /brand-image-mark/)
+  assert.match(home, /Brand concept image; not a customer home/)
+  assert.doesNotMatch(home, /preview-only|policy draft|owner-reviewed workflow/i)
 })
 
 test('approved company seal is present in hero, footer, and social metadata', () => {
@@ -78,7 +80,20 @@ test('rendered markup uses encoding-safe HTML entities for UI symbols', () => {
 })
 
 test('stylesheet URL is versioned to prevent mixed production assets', () => {
-  assert.match(renderPage(pages.find(page => page.home)), /href="\/styles\.css\?v=3\.0\.1"/)
+  assert.match(renderPage(pages.find(page => page.home)), /href="\/styles\.css\?v=3\.1\.0"/)
+})
+
+test('service pages publish Service schema and internal pages publish breadcrumbs', () => {
+  const service = renderPage(pages.find(page => page.service))
+  assert.match(service, /"@type":"Service"/)
+  assert.match(service, /"@type":"BreadcrumbList"/)
+})
+
+test('conversion instrumentation covers quote, email, phone, and embedded form events', async () => {
+  const script = await readFile(new URL('../src/site/site.js', import.meta.url), 'utf8')
+  assert.match(script, /quote_form_view/)
+  assert.match(script, /marble:conversion/)
+  assert.match(renderPage(pages.find(page => page.home)), /data-conversion="quote_cta"/)
 })
 
 test('public HTML includes core accessibility and security affordances', () => {
@@ -87,6 +102,6 @@ test('public HTML includes core accessibility and security affordances', () => {
     assert.match(html, /class="skip-link"/)
     assert.match(html, /<main id="main">/)
     assert.match(html, /aria-label="Primary"/)
-    assert.match(html, /rel="noopener noreferrer"/)
   })
+  assert.match(renderPage(pages.find(page => page.quote)), /rel="noopener noreferrer"/)
 })
