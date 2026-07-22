@@ -116,3 +116,18 @@ function setupScheduling() {
 
 if (document.body.dataset.page === '/quote/') setupQuote()
 if (document.body.dataset.page === '/schedule/') setupScheduling()
+
+function setupCrewOffer() {
+  const root = $('#native-crew-offer'), status = $('#crew-offer-status'); if (!root) return
+  const token = new URLSearchParams(location.search).get('token') || ''
+  const money = value => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value || 0))
+  fetch(`/api/crew-offer?token=${encodeURIComponent(token)}`).then(async response => {
+    const data = await response.json(); if (!response.ok || !data.ok) throw new Error(data.error); status.hidden = true
+    root.innerHTML = `<article class="schedule-summary"><p class="eyebrow">${esc(data.role || 'Cleaner')} opportunity</p><h2>${esc(data.serviceName || 'Residential cleaning')}</h2><dl class="sidebar-facts"><div><dt>Date</dt><dd>${esc(new Date(data.startAt).toLocaleString())}</dd></div><div><dt>Area</dt><dd>${esc(data.city || '')}, ${esc(data.zip || '')}</dd></div><div><dt>Estimated labor</dt><dd>${Number(data.estimatedLaborHours || 0).toFixed(1)} hours</dd></div><div><dt>Fixed payout if selected</dt><dd><strong>${money(data.offerAmount)}</strong></dd></div></dl><div class="security-note"><span aria-hidden="true">i</span><span>${esc(data.terms || '')}</span></div></article>${data.status === 'OPEN' ? `<form id="crew-offer-form" class="native-form"><label>Optional note<textarea name="notes" maxlength="1000" placeholder="Availability details or a question for operations"></textarea></label><div class="schedule-action"><button class="button button-gold" name="decision" value="ACCEPT" type="submit">I&rsquo;m interested</button><button class="button button-ghost" name="decision" value="DECLINE" type="submit">Decline</button></div></form>` : `<div class="form-status success">Response recorded: ${esc(data.status)}. Assignment requires a separate confirmation from operations.</div>`}
+    const form = $('#crew-offer-form'); if (!form) return; let decision = ''
+    $$('button[name=decision]', form).forEach(button => button.addEventListener('click', () => { decision = button.value }))
+    form.addEventListener('submit', async event => { event.preventDefault(); try { if (!decision) throw new Error('Choose interested or decline.'); const notes = new FormData(form).get('notes') || '', response = await fetch('/api/crew-offer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, decision, notes }) }), output = await response.json(); if (!response.ok || !output.ok) throw new Error(output.error); root.innerHTML = `<div class="form-status success">${esc(output.message)}</div>` } catch (error) { show(status, error.message || String(error), true) } })
+  }).catch(error => show(status, error.message || String(error), true))
+}
+
+if (document.body.dataset.page === '/crew/') setupCrewOffer()
