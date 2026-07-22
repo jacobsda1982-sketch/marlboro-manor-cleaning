@@ -120,7 +120,7 @@ async function publishCrewOffer(request, env) {
   if (!authorized(request, env)) return json({ ok: false, error: 'Unauthorized' }, 401)
   const body = await request.json().catch(() => null), token = clean(body?.token, 180), offerId = clean(body?.offerId, 100)
   if (!tokenOkay(token) || !offerId || !body?.expiresAt) return json({ ok: false, error: 'Invalid crew offer session.' }, 400)
-  const now = new Date().toISOString(), payload = { offerId, jobId: clean(body.jobId, 100), contractorName: clean(body.contractorName), serviceName: clean(body.serviceName), startAt: clean(body.startAt, 50), endAt: clean(body.endAt, 50), city: clean(body.city), zip: clean(body.zip, 10), role: clean(body.role), estimatedLaborHours: Number(body.estimatedLaborHours || 0), expectedDurationMinutes: Number(body.expectedDurationMinutes || 0), offerAmount: Number(body.offerAmount || 0), terms: clean(body.terms, 3000) }
+  const now = new Date().toISOString(), payload = { offerId, jobId: clean(body.jobId, 100), contractorName: clean(body.contractorName), serviceName: clean(body.serviceName), startAt: clean(body.startAt, 50), endAt: clean(body.endAt, 50), city: clean(body.city), zip: clean(body.zip, 10), role: clean(body.role), coverageType: clean(body.coverageType, 30) || 'POSITION', crewSizeCovered: Math.max(1, Number(body.crewSizeCovered || 1)), estimatedLaborHours: Number(body.estimatedLaborHours || 0), expectedDurationMinutes: Number(body.expectedDurationMinutes || 0), offerAmount: Number(body.offerAmount || 0), terms: clean(body.terms, 3000) }
   await env.DB.prepare("INSERT INTO crew_offer_sessions (token,offer_id,status,expires_at,created_at,updated_at,payload) VALUES (?,?,?,?,?,?,?) ON CONFLICT(token) DO UPDATE SET status='OPEN',expires_at=excluded.expires_at,updated_at=excluded.updated_at,payload=excluded.payload").bind(token, offerId, 'OPEN', clean(body.expiresAt, 50), now, now, JSON.stringify(payload)).run()
   return json({ ok: true, url: `https://marlboromanorcleaning.com/crew/?token=${encodeURIComponent(token)}` })
 }
@@ -138,7 +138,10 @@ async function crewOffer(request, env, url) {
   const row = await env.DB.prepare('SELECT status,expires_at,payload FROM crew_offer_sessions WHERE token=?').bind(token).first(); if (!row) return json({ ok: false, error: 'This work offer was not found.' }, 404)
   if (Date.parse(row.expires_at) < Date.now()) return json({ ok: false, error: 'This work offer has expired.' }, 410)
   if (row.status !== 'OPEN') return json({ ok: true, status: row.status, idempotent: true })
-  const session = JSON.parse(row.payload), now = new Date().toISOString(), id = `CREW-${crypto.randomUUID()}`, status = decision === 'ACCEPT' ? 'ACCEPTED' : 'DECLINED', payload = { offerId: session.offerId, jobId: session.jobId, decision, notes, submittedAt: now }
+  const session = JSON.parse(row.payload), managed = session.coverageType === 'MANAGED_CREW', crewSlotsBid = managed ? Number(body?.crewSlotsBid || session.crewSizeCovered) : 1, payoutBidAmount = Number(body?.payoutBidAmount || session.offerAmount)
+  if (decision === 'ACCEPT' && (!Number.isInteger(crewSlotsBid) || crewSlotsBid < 1 || crewSlotsBid > Number(session.crewSizeCovered || 1))) return json({ ok: false, error: `Crew slots bid must be from 1 to ${Number(session.crewSizeCovered || 1)}.` }, 400)
+  if (decision === 'ACCEPT' && (!Number.isFinite(payoutBidAmount) || payoutBidAmount <= 0 || payoutBidAmount > Number(session.offerAmount || 0))) return json({ ok: false, error: 'Payout bid must be positive and cannot exceed the offered ceiling.' }, 400)
+  const now = new Date().toISOString(), id = `CREW-${crypto.randomUUID()}`, status = decision === 'ACCEPT' ? 'ACCEPTED' : 'DECLINED', payload = { offerId: session.offerId, jobId: session.jobId, decision, notes, crewSlotsBid, payoutBidAmount, submittedAt: now }
   await env.DB.batch([env.DB.prepare('UPDATE crew_offer_sessions SET status=?,updated_at=?,decision=?,notes=?,responded_at=? WHERE token=?').bind(status, now, decision, notes, now, token), env.DB.prepare('INSERT INTO public_intake (id,kind,status,created_at,updated_at,email,payload) VALUES (?,?,?,?,?,?,?)').bind(id, 'CREW_OFFER_RESPONSE', 'NEW', now, now, '', JSON.stringify(payload))])
   return json({ ok: true, status, message: decision === 'ACCEPT' ? 'Your interest was recorded. This does not assign you to the job; the operations manager will send a separate assignment decision.' : 'Your decline was recorded.' })
 }
@@ -151,7 +154,7 @@ export default {
       if (!env.DB) return json({ ok: false, error: 'Public workflow storage is not configured.' }, 503)
       await ensureSchema(env.DB)
       try {
-        if (url.pathname === '/api/health') return json({ ok: true, service: 'marble-public-workflows', version: '1.2.0', smsWebhooks: Boolean(env.TWILIO_AUTH_TOKEN), crewOffers: true })
+        if (url.pathname === '/api/health') return json({ ok: true, service: 'marble-public-workflows', version: '1.3.0', smsWebhooks: Boolean(env.TWILIO_AUTH_TOKEN), crewOffers: true, managedCrewBids: true })
         if (url.pathname === '/api/twilio/inbound' && request.method === 'POST') return twilioWebhook(request, env, 'SMS_INBOUND')
         if (url.pathname === '/api/twilio/status' && request.method === 'POST') return twilioWebhook(request, env, 'SMS_STATUS')
         if (url.pathname === '/api/quote' && request.method === 'POST') return submitQuote(request, env)
