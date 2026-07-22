@@ -82,7 +82,7 @@ test('rendered markup uses encoding-safe HTML entities for UI symbols', () => {
 })
 
 test('stylesheet URL is versioned to prevent mixed production assets', () => {
-  assert.match(renderPage(pages.find(page => page.home)), /href="\/styles\.css\?v=3\.4\.0"/)
+  assert.match(renderPage(pages.find(page => page.home)), /href="\/styles\.css\?v=3\.5\.0"/)
 })
 
 test('service pages publish Service schema and internal pages publish breadcrumbs', () => {
@@ -142,4 +142,5 @@ test('selected Marble service-platform design system is shipped', async () => {
   assert.match(css, /--navy-deep:#0b2130/)
   assert.match(css, /--gold:#c89a4b/)
   assert.match(css, /grid-template-columns:minmax\(0,1fr\) 20\.625rem/)
+  assert.match(css, /Concept C — universal public app framework/)
 })
