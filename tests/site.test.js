@@ -82,7 +82,7 @@ test('rendered markup uses encoding-safe HTML entities for UI symbols', () => {
 })
 
 test('stylesheet URL is versioned to prevent mixed production assets', () => {
-  assert.match(renderPage(pages.find(page => page.home)), /href="\/styles\.css\?v=3\.1\.0"/)
+  assert.match(renderPage(pages.find(page => page.home)), /href="\/styles\.css\?v=3\.4\.0"/)
 })
 
 test('service pages publish Service schema and internal pages publish breadcrumbs', () => {
@@ -125,7 +125,8 @@ test('customer forms provide guided, accessible, resumable experiences', async (
   const scheduling = renderPage(pages.find(page => page.scheduling))
   const script = await readFile(new URL('../src/site/public-intake.js', import.meta.url), 'utf8')
   assert.match(quote, /class="quote-workspace"/)
-  assert.match(quote, /Everything we need, all in one place/)
+  assert.match(quote, /Tell us about your home/)
+  assert.match(quote, /class="c-summary"/)
   assert.match(quote, /id="live-quote-summary"/)
   assert.match(quote, /id="blindsQuantity"/)
   assert.match(scheduling, /aria-live="polite"/)
