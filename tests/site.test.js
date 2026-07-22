@@ -134,3 +134,11 @@ test('customer forms provide guided, accessible, resumable experiences', async (
   assert.match(script, /mmc-quote-draft/)
   assert.match(script, /Recommended option/)
 })
+
+test('selected Marble service-platform design system is shipped', async () => {
+  const css = await readFile(new URL('../src/site/styles.css', import.meta.url), 'utf8')
+  assert.match(css, /Marble Service Platform — Option C/)
+  assert.match(css, /--navy-deep:#0b2130/)
+  assert.match(css, /--gold:#c89a4b/)
+  assert.match(css, /grid-template-columns:minmax\(0,1fr\) 20\.625rem/)
+})
