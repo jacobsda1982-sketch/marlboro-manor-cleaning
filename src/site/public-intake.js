@@ -9,7 +9,7 @@ const addOnNames = { 'AO-OVEN': 'Oven interior', 'AO-FRIDGE': 'Refrigerator inte
 function quotePayload(form) {
   const data = Object.fromEntries(new FormData(form).entries())
   const addOns = $$('[name="addOn"]:checked', form).map(input => ({ code: input.value, quantity: input.value === 'AO-BLINDS' ? Number($('#blindsQuantity')?.value || 1) : 1 }))
-  return { ...data, finishedBasement: data.finishedBasement === 'on', pets: data.pets === 'on', consent: data.consent === 'on', addOns }
+  return { ...data, finishedBasement: data.finishedBasement === 'on', pets: data.pets === 'on', consent: data.consent === 'on', smsConsent: data.smsConsent === 'on', addOns }
 }
 
 function saveDraft(form) {
@@ -41,6 +41,8 @@ function restoreDraft(form) {
 function setupQuote() {
   const form = $('#native-quote-form'), status = $('#quote-status'), submit = $('#quote-submit')
   if (!form) return
+  const consentRow = $('[name="consent"]', form)?.closest('label')
+  if (consentRow && !$('[name="smsConsent"]', form)) consentRow.insertAdjacentHTML('afterend', '<label class="consent-row"><input name="smsConsent" type="checkbox"><span>I agree to receive transactional text messages about this estimate and related appointments. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase.</span></label>')
   restoreDraft(form)
 
   const syncConditionalFields = () => {

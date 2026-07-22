@@ -11,6 +11,28 @@ async function ensureSchema(db) {
   ])
 }
 
+const base64 = bytes => btoa(String.fromCharCode(...new Uint8Array(bytes)))
+async function validTwilioSignature(request, env, params) {
+  const token = clean(env.TWILIO_AUTH_TOKEN, 300), supplied = clean(request.headers.get('x-twilio-signature'), 500)
+  if (!token || !supplied) return false
+  const entries = [...params.entries()].sort(([a], [b]) => a.localeCompare(b))
+  const source = request.url + entries.map(([key, value]) => key + value).join('')
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(token), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign'])
+  return base64(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(source))) === supplied
+}
+
+async function twilioWebhook(request, env, kind) {
+  const text = await request.text(), params = new URLSearchParams(text)
+  if (!(await validTwilioSignature(request, env, params))) return new Response('Invalid signature', { status: 403 })
+  const now = new Date().toISOString(), messageSid = clean(params.get('MessageSid') || params.get('SmsSid'), 100), id = `${kind}-${messageSid || crypto.randomUUID()}`
+  const payload = kind === 'SMS_INBOUND'
+    ? { messageSid, from: clean(params.get('From'), 40), to: clean(params.get('To'), 40), body: clean(params.get('Body'), 2000), numMedia: Number(params.get('NumMedia') || 0), receivedAt: now }
+    : { messageSid, messageStatus: clean(params.get('MessageStatus') || params.get('SmsStatus'), 40), errorCode: clean(params.get('ErrorCode'), 40), errorMessage: clean(params.get('ErrorMessage'), 1000), receivedAt: now }
+  await env.DB.prepare('INSERT INTO public_intake (id,kind,status,created_at,updated_at,email,payload) VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING').bind(id, kind, 'NEW', now, now, '', JSON.stringify(payload)).run()
+  if (kind === 'SMS_INBOUND') return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', { status: 200, headers: { 'content-type': 'text/xml; charset=utf-8' } })
+  return new Response('', { status: 204 })
+}
+
 function authorized(request, env) {
   const expected = clean(env.MARBLE_QUEUE_SECRET, 300)
   return Boolean(expected) && clean(request.headers.get('authorization'), 400) === `Bearer ${expected}`
@@ -34,7 +56,7 @@ async function submitQuote(request, env) {
     occupiedStatus: clean(body.occupiedStatus || 'OCCUPIED'), condition: clean(body.condition), frequency: clean(body.frequency),
     pets: Boolean(body.pets), petHairLevel: clean(body.petHairLevel || 'NONE'), preferredDate: clean(body.preferredDate, 30),
     addOns: Array.isArray(body.addOns) ? body.addOns.slice(0, 20).map(item => ({ code: clean(item.code, 50), quantity: Math.max(1, Math.min(100, Number(item.quantity || 1))) })) : [],
-    additionalNotes: clean(body.notes, 3000), consent: Boolean(body.consent), submittedAt: now
+    additionalNotes: clean(body.notes, 3000), consent: Boolean(body.consent), smsConsent: Boolean(body.smsConsent), smsConsentText: 'I agree to receive transactional text messages about this estimate and related appointments. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase.', smsConsentVersion: 'SMS-1.0', submittedAt: now
   }
   if (!payload.consent) return json({ ok: false, error: 'Consent is required before submitting.' }, 400)
   await env.DB.prepare('INSERT INTO public_intake (id,kind,status,created_at,updated_at,email,payload) VALUES (?,?,?,?,?,?,?)').bind(id, 'QUOTE', 'NEW', now, now, payload.email, JSON.stringify(payload)).run()
@@ -101,7 +123,9 @@ export default {
       if (!env.DB) return json({ ok: false, error: 'Public workflow storage is not configured.' }, 503)
       await ensureSchema(env.DB)
       try {
-        if (url.pathname === '/api/health') return json({ ok: true, service: 'marble-public-workflows', version: '1.0.0' })
+        if (url.pathname === '/api/health') return json({ ok: true, service: 'marble-public-workflows', version: '1.1.0', smsWebhooks: Boolean(env.TWILIO_AUTH_TOKEN) })
+        if (url.pathname === '/api/twilio/inbound' && request.method === 'POST') return twilioWebhook(request, env, 'SMS_INBOUND')
+        if (url.pathname === '/api/twilio/status' && request.method === 'POST') return twilioWebhook(request, env, 'SMS_STATUS')
         if (url.pathname === '/api/quote' && request.method === 'POST') return submitQuote(request, env)
         if (url.pathname === '/api/scheduling' && ['GET', 'POST'].includes(request.method)) return scheduling(request, env, url)
         if (url.pathname === '/api/marble/queue' && ['GET', 'POST'].includes(request.method)) return marbleQueue(request, env, url)
