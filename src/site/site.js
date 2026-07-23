@@ -42,3 +42,9 @@
     if (menu) menu.open = false
   }))
 })()
+document.querySelectorAll('[data-insurance-effective]').forEach(element => {
+  const effectiveAt = Date.parse(element.dataset.insuranceEffective || '')
+  if (Number.isFinite(effectiveAt) && Date.now() >= effectiveAt) {
+    element.textContent = 'Commercial liability insured'
+  }
+})

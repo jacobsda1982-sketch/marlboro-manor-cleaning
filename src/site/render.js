@@ -30,13 +30,17 @@ function sections(page) {
 
 function trustItems() {
   const items = ['Locally owned', 'Personalized estimates', 'Address-verified service area']
-  if (business.claims.insured) items.push('Insurance verified')
+  if (business.insurance.certificateVerified) {
+    items.push(`<span class="insurance-status" data-insurance-effective="${esc(business.insurance.effectiveAt)}">Liability coverage effective July 24, 2026</span>`)
+  } else if (business.claims.insured) {
+    items.push('Commercial liability insured')
+  }
   if (business.claims.backgroundChecked) items.push('Background checks verified')
   return items
 }
 
 function trustSection() {
-  return `<section class="trust-band" aria-label="Why choose Marlboro Manor Cleaning"><div class="container trust-band-grid">${trustItems().map(item => `<div><span aria-hidden="true">&#10003;</span><strong>${esc(item)}</strong></div>`).join('')}</div></section>`
+  return `<section class="trust-band" aria-label="Why choose Marlboro Manor Cleaning"><div class="container trust-band-grid">${trustItems().map(item => `<div><span aria-hidden="true">&#10003;</span><strong>${item.startsWith('<') ? item : esc(item)}</strong></div>`).join('')}</div></section>`
 }
 
 function proofSection() {

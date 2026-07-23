@@ -46,8 +46,12 @@ test('quote calls to action stay on the branded website and render the native se
   assert.match(quote, /id="blindsQuantity"/)
 })
 
-test('unverified trust claims and telephone schema remain disabled', () => {
+test('verified insurance certificate is disclosed without activating future coverage early', () => {
   assert.equal(business.claims.insured, false)
+  assert.equal(business.insurance.certificateVerified, true)
+  assert.equal(business.insurance.effectiveAt, '2026-07-24T00:00:00-04:00')
+  assert.equal(business.insurance.eachOccurrenceLimit, 1000000)
+  assert.equal(business.insurance.aggregateLimit, 2000000)
   assert.equal(business.claims.backgroundChecked, false)
   assert.equal(business.phoneE164, '')
   assert.equal(business.testContentEnabled, false)
@@ -57,6 +61,9 @@ test('unverified trust claims and telephone schema remain disabled', () => {
     assert.doesNotMatch(html, /five-star|background.checked|fully insured/i)
     assert.doesNotMatch(html, /Insurance documentation: verification pending/)
   })
+  const home = renderPage(pages.find(page => page.home))
+  assert.match(home, /Liability coverage effective July 24, 2026/)
+  assert.match(home, /data-insurance-effective="2026-07-24T00:00:00-04:00"/)
 })
 
 test('homepage discloses concept imagery without prototype language', () => {

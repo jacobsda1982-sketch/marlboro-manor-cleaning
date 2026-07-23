@@ -14,6 +14,14 @@ export const business = {
   serviceRadiusMiles: 25,
   areas: ['Upper Marlboro', 'Bowie', 'Mitchellville', 'Largo', 'Clinton'],
   hours: 'Monday-Friday 8:00 AM-6:00 PM | Saturday 9:00 AM-3:00 PM | Sunday closed',
+  insurance: {
+    certificateVerified: true,
+    carrier: 'Next Insurance US Company',
+    effectiveAt: '2026-07-24T00:00:00-04:00',
+    expiresAt: '2027-07-24T00:00:00-04:00',
+    eachOccurrenceLimit: 1000000,
+    aggregateLimit: 2000000
+  },
   claims: {
     locallyOwned: true,
     insured: process.env.PUBLIC_INSURANCE_VERIFIED === 'true',
