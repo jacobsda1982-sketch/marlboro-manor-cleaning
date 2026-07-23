@@ -136,6 +136,20 @@ test('customer forms provide guided, accessible, resumable experiences', async (
   assert.match(script, /Recommended option/)
 })
 
+test('crew workspace includes a private earnings wallet and payout lifecycle', async () => {
+  const crew = renderPage(pages.find(page => page.crewOffer))
+  const script = await readFile(new URL('../src/site/public-intake.js', import.meta.url), 'utf8')
+  const worker = await readFile(new URL('../src/site/worker.js', import.meta.url), 'utf8')
+  assert.match(crew, /id="crew-wallet"/)
+  assert.match(crew, /Work & earnings/)
+  assert.match(script, /\/api\/crew-wallet\?token=/)
+  assert.match(script, /Available/)
+  assert.match(script, /Processing/)
+  assert.match(script, /Payout history/)
+  assert.match(worker, /CREATE TABLE IF NOT EXISTS crew_wallets/)
+  assert.match(worker, /\/api\/marble\/crew-wallet/)
+})
+
 test('selected Marble service-platform design system is shipped', async () => {
   const css = await readFile(new URL('../src/site/styles.css', import.meta.url), 'utf8')
   assert.match(css, /Marble Service Platform — Option C/)

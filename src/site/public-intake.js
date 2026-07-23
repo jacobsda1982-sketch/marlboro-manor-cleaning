@@ -121,6 +121,7 @@ function setupCrewOffer() {
   const root = $('#native-crew-offer'), status = $('#crew-offer-status'); if (!root) return
   const token = new URLSearchParams(location.search).get('token') || ''
   const money = value => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value || 0))
+  setupCrewWallet(token, money)
   fetch(`/api/crew-offer?token=${encodeURIComponent(token)}`).then(async response => {
     const data = await response.json(); if (!response.ok || !data.ok) throw new Error(data.error); status.hidden = true
     const managed = data.coverageType === 'MANAGED_CREW'
@@ -129,6 +130,17 @@ function setupCrewOffer() {
     $$('button[name=decision]', form).forEach(button => button.addEventListener('click', () => { decision = button.value }))
     form.addEventListener('submit', async event => { event.preventDefault(); try { if (!decision) throw new Error('Choose interested or decline.'); const values=new FormData(form),notes=values.get('notes')||'',crewSlotsBid=managed?Number(values.get('crewSlotsBid')):1,payoutBidAmount=managed?Number(values.get('payoutBidAmount')):Number(data.offerAmount||0),response = await fetch('/api/crew-offer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, decision, notes, crewSlotsBid, payoutBidAmount }) }), output = await response.json(); if (!response.ok || !output.ok) throw new Error(output.error); root.innerHTML = `<div class="form-status success">${esc(output.message)}</div>` } catch (error) { show(status, error.message || String(error), true) } })
   }).catch(error => show(status, error.message || String(error), true))
+}
+
+function setupCrewWallet(token, money) {
+  const root = $('#crew-wallet'); if (!root || !token) return
+  const date = value => value ? new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
+  const statusLabel = value => String(value || '').replaceAll('_', ' ').toLowerCase().replace(/(^|\s)\S/g, letter => letter.toUpperCase())
+  fetch(`/api/crew-wallet?token=${encodeURIComponent(token)}`).then(async response => {
+    const data = await response.json(); if (!response.ok || !data.ok) throw new Error(data.error)
+    const balances = data.balances || {}, earnings = data.earnings || [], payouts = data.payouts || []
+    root.innerHTML = `<div class="wallet-heading"><div><p class="eyebrow">Private earnings wallet</p><h2 id="wallet-title">${esc(data.name || 'Your earnings')}</h2><p>Weekly payout day: <strong>${esc(data.payout?.schedule || 'Friday')}</strong> · ${esc(data.payout?.provider || 'PayPal')} ${esc(data.payout?.recipient || '')}</p></div><span class="wallet-sync">Updated ${esc(date(data.updatedAt || data.syncedAt))}</span></div><div class="wallet-balances"><article><span>Available</span><strong>${money(balances.available)}</strong><small>QA approved</small></article><article><span>Processing</span><strong>${money(balances.processing)}</strong><small>In a payout batch</small></article><article><span>Paid</span><strong>${money(balances.paid)}</strong><small>Completed earnings</small></article><article class="${Number(balances.attention || 0) ? 'attention' : ''}"><span>Needs attention</span><strong>${money(balances.attention)}</strong><small>Failed or disputed</small></article></div><div class="wallet-grid"><section><h3>Earnings activity</h3>${earnings.length ? `<div class="wallet-list">${earnings.map(item => `<article><div><strong>${esc(item.serviceName || 'Cleaning service')}</strong><small>${esc(date(item.serviceDate))} · ${esc(item.jobId)}</small></div><div><strong>${money(item.payableAmount)}</strong><span class="wallet-status status-${esc(String(item.status || '').toLowerCase())}">${esc(statusLabel(item.status))}</span></div></article>`).join('')}</div>` : '<p class="wallet-empty">No earnings have been recorded yet. Awarded work appears here after owner-approved QA.</p>'}</section><section><h3>Payout history</h3>${payouts.length ? `<div class="wallet-list">${payouts.map(item => `<article><div><strong>${esc(item.batchId || 'Payout')}</strong><small>${esc(date(item.submittedAt || item.paidAt))}</small></div><div><strong>${money(item.amount)}</strong><span class="wallet-status status-${esc(String(item.status || '').toLowerCase())}">${esc(statusLabel(item.status))}</span></div></article>`).join('')}</div>` : '<p class="wallet-empty">No payouts have been issued yet.</p>'}</section></div><div class="wallet-policy"><strong>How earnings move</strong><span>Awarded job → completed work → owner-approved QA → weekly payout → provider confirmation.</span></div>`
+  }).catch(error => { root.innerHTML = `<div class="form-status form-status-error">${esc(error.message || String(error))}</div>` })
 }
 
 if (document.body.dataset.page === '/crew/') setupCrewOffer()

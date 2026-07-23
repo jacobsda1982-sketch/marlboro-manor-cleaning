@@ -8,7 +8,8 @@ async function ensureSchema(db) {
     db.prepare('CREATE TABLE IF NOT EXISTS public_intake (id TEXT PRIMARY KEY, kind TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, email TEXT, payload TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, processed_at TEXT, private_reference TEXT, error TEXT)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_public_intake_queue ON public_intake(kind,status,created_at)'),
     db.prepare('CREATE TABLE IF NOT EXISTS scheduling_sessions (token TEXT PRIMARY KEY, status TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, payload TEXT NOT NULL, selected_option_id TEXT, customer_notes TEXT, confirmed_at TEXT)'),
-    db.prepare('CREATE TABLE IF NOT EXISTS crew_offer_sessions (token TEXT PRIMARY KEY, offer_id TEXT NOT NULL, status TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, payload TEXT NOT NULL, decision TEXT, notes TEXT, responded_at TEXT)')
+    db.prepare('CREATE TABLE IF NOT EXISTS crew_offer_sessions (token TEXT PRIMARY KEY, offer_id TEXT NOT NULL, status TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, payload TEXT NOT NULL, decision TEXT, notes TEXT, responded_at TEXT)'),
+    db.prepare('CREATE TABLE IF NOT EXISTS crew_wallets (team_member_id TEXT PRIMARY KEY, updated_at TEXT NOT NULL, payload TEXT NOT NULL)')
   ])
 }
 
@@ -120,7 +121,7 @@ async function publishCrewOffer(request, env) {
   if (!authorized(request, env)) return json({ ok: false, error: 'Unauthorized' }, 401)
   const body = await request.json().catch(() => null), token = clean(body?.token, 180), offerId = clean(body?.offerId, 100)
   if (!tokenOkay(token) || !offerId || !body?.expiresAt) return json({ ok: false, error: 'Invalid crew offer session.' }, 400)
-  const now = new Date().toISOString(), payload = { offerId, jobId: clean(body.jobId, 100), contractorName: clean(body.contractorName), serviceName: clean(body.serviceName), startAt: clean(body.startAt, 50), endAt: clean(body.endAt, 50), city: clean(body.city), zip: clean(body.zip, 10), role: clean(body.role), coverageType: clean(body.coverageType, 30) || 'POSITION', crewSizeCovered: Math.max(1, Number(body.crewSizeCovered || 1)), estimatedLaborHours: Number(body.estimatedLaborHours || 0), expectedDurationMinutes: Number(body.expectedDurationMinutes || 0), offerAmount: Number(body.offerAmount || 0), terms: clean(body.terms, 3000) }
+  const now = new Date().toISOString(), payload = { offerId, jobId: clean(body.jobId, 100), teamMemberId: clean(body.teamMemberId, 100), contractorName: clean(body.contractorName), serviceName: clean(body.serviceName), startAt: clean(body.startAt, 50), endAt: clean(body.endAt, 50), city: clean(body.city), zip: clean(body.zip, 10), role: clean(body.role), coverageType: clean(body.coverageType, 30) || 'POSITION', crewSizeCovered: Math.max(1, Number(body.crewSizeCovered || 1)), estimatedLaborHours: Number(body.estimatedLaborHours || 0), expectedDurationMinutes: Number(body.expectedDurationMinutes || 0), offerAmount: Number(body.offerAmount || 0), terms: clean(body.terms, 3000) }
   await env.DB.prepare("INSERT INTO crew_offer_sessions (token,offer_id,status,expires_at,created_at,updated_at,payload) VALUES (?,?,?,?,?,?,?) ON CONFLICT(token) DO UPDATE SET status='OPEN',expires_at=excluded.expires_at,updated_at=excluded.updated_at,payload=excluded.payload").bind(token, offerId, 'OPEN', clean(body.expiresAt, 50), now, now, JSON.stringify(payload)).run()
   return json({ ok: true, url: `https://marlboromanorcleaning.com/crew/?token=${encodeURIComponent(token)}` })
 }
@@ -146,6 +147,28 @@ async function crewOffer(request, env, url) {
   return json({ ok: true, status, message: decision === 'ACCEPT' ? 'Your interest was recorded. This does not assign you to the job; the operations manager will send a separate assignment decision.' : 'Your decline was recorded.' })
 }
 
+async function publishCrewWallet(request, env) {
+  if (!authorized(request, env)) return json({ ok: false, error: 'Unauthorized' }, 401)
+  const body = await request.json().catch(() => null), teamMemberId = clean(body?.teamMemberId, 100)
+  if (!teamMemberId || !body?.balances || !Array.isArray(body?.earnings) || !Array.isArray(body?.payouts)) return json({ ok: false, error: 'Invalid crew wallet snapshot.' }, 400)
+  const now = new Date().toISOString()
+  const payload = { teamMemberId, name: clean(body.name), businessName: clean(body.businessName), payout: body.payout || {}, balances: body.balances || {}, earnings: body.earnings.slice(0, 50), payouts: body.payouts.slice(0, 25), updatedAt: clean(body.updatedAt, 50) || now }
+  await env.DB.prepare('INSERT INTO crew_wallets (team_member_id,updated_at,payload) VALUES (?,?,?) ON CONFLICT(team_member_id) DO UPDATE SET updated_at=excluded.updated_at,payload=excluded.payload').bind(teamMemberId, now, JSON.stringify(payload)).run()
+  return json({ ok: true, teamMemberId, updatedAt: now })
+}
+
+async function crewWallet(request, env, url) {
+  const token = clean(url.searchParams.get('token'), 180)
+  if (!tokenOkay(token)) return json({ ok: false, error: 'This crew wallet link is invalid.' }, 400)
+  const session = await env.DB.prepare('SELECT payload FROM crew_offer_sessions WHERE token=?').bind(token).first()
+  if (!session) return json({ ok: false, error: 'This crew access link was not found.' }, 404)
+  const teamMemberId = clean(JSON.parse(session.payload).teamMemberId, 100)
+  if (!teamMemberId) return json({ ok: false, error: 'This older link does not include wallet access. Ask operations for a new work opportunity link.' }, 409)
+  const wallet = await env.DB.prepare('SELECT payload,updated_at FROM crew_wallets WHERE team_member_id=?').bind(teamMemberId).first()
+  if (!wallet) return json({ ok: true, empty: true, balances: { pendingQa: 0, available: 0, processing: 0, paid: 0, attention: 0 }, earnings: [], payouts: [] })
+  return json({ ok: true, ...JSON.parse(wallet.payload), syncedAt: wallet.updated_at })
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url)
@@ -154,15 +177,17 @@ export default {
       if (!env.DB) return json({ ok: false, error: 'Public workflow storage is not configured.' }, 503)
       await ensureSchema(env.DB)
       try {
-        if (url.pathname === '/api/health') return json({ ok: true, service: 'marble-public-workflows', version: '1.3.0', smsWebhooks: Boolean(env.TWILIO_AUTH_TOKEN), crewOffers: true, managedCrewBids: true })
+        if (url.pathname === '/api/health') return json({ ok: true, service: 'marble-public-workflows', version: '1.4.0', smsWebhooks: Boolean(env.TWILIO_AUTH_TOKEN), crewOffers: true, managedCrewBids: true, crewWallets: true })
         if (url.pathname === '/api/twilio/inbound' && request.method === 'POST') return twilioWebhook(request, env, 'SMS_INBOUND')
         if (url.pathname === '/api/twilio/status' && request.method === 'POST') return twilioWebhook(request, env, 'SMS_STATUS')
         if (url.pathname === '/api/quote' && request.method === 'POST') return submitQuote(request, env)
         if (url.pathname === '/api/scheduling' && ['GET', 'POST'].includes(request.method)) return scheduling(request, env, url)
         if (url.pathname === '/api/crew-offer' && ['GET', 'POST'].includes(request.method)) return crewOffer(request, env, url)
+        if (url.pathname === '/api/crew-wallet' && request.method === 'GET') return crewWallet(request, env, url)
         if (url.pathname === '/api/marble/queue' && ['GET', 'POST'].includes(request.method)) return marbleQueue(request, env, url)
         if (url.pathname === '/api/marble/scheduling' && request.method === 'POST') return publishSchedule(request, env)
         if (url.pathname === '/api/marble/crew-offer' && request.method === 'POST') return publishCrewOffer(request, env)
+        if (url.pathname === '/api/marble/crew-wallet' && request.method === 'POST') return publishCrewWallet(request, env)
         return json({ ok: false, error: 'Not found' }, 404)
       } catch (error) { console.error('Public workflow error', error); return json({ ok: false, error: 'We could not complete that request. Please try again.' }, 500) }
     }
