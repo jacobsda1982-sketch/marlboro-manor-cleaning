@@ -53,17 +53,26 @@ test('verified insurance certificate is disclosed without activating future cove
   assert.equal(business.insurance.eachOccurrenceLimit, 1000000)
   assert.equal(business.insurance.aggregateLimit, 2000000)
   assert.equal(business.claims.backgroundChecked, false)
-  assert.equal(business.phoneE164, '')
+  assert.equal(business.phoneE164, '+13016603005')
+  assert.equal(business.phoneDisplay, '(301) 660-3005')
   assert.equal(business.testContentEnabled, false)
   pages.forEach(page => {
     const html = renderPage(page)
-    assert.doesNotMatch(html, /"telephone"/)
+    assert.match(html, /"telephone":"\+13016603005"/)
     assert.doesNotMatch(html, /five-star|background.checked|fully insured/i)
     assert.doesNotMatch(html, /Insurance documentation: verification pending/)
   })
   const home = renderPage(pages.find(page => page.home))
   assert.match(home, /Liability coverage effective July 24, 2026/)
   assert.match(home, /data-insurance-effective="2026-07-24T00:00:00-04:00"/)
+})
+
+test('business phone is consistently published for calls and structured data', () => {
+  pages.forEach(page => {
+    const html = renderPage(page)
+    assert.match(html, /tel:\+13016603005/)
+    assert.match(html, /\(301\) 660-3005/)
+  })
 })
 
 test('homepage discloses concept imagery without prototype language', () => {
@@ -155,6 +164,15 @@ test('crew workspace includes a private earnings wallet and payout lifecycle', a
   assert.match(script, /Payout history/)
   assert.match(worker, /CREATE TABLE IF NOT EXISTS crew_wallets/)
   assert.match(worker, /\/api\/marble\/crew-wallet/)
+})
+
+test('public worker exposes signed SMS and voice intake endpoints', async () => {
+  const worker = await readFile(new URL('../src/site/worker.js', import.meta.url), 'utf8')
+  assert.match(worker, /version: '1\.5\.0'/)
+  assert.match(worker, /\/api\/twilio\/inbound/)
+  assert.match(worker, /\/api\/twilio\/voice\/inbound/)
+  assert.match(worker, /\/api\/twilio\/voice\/gather/)
+  assert.match(worker, /voiceWebhooks/)
 })
 
 test('selected Marble service-platform design system is shipped', async () => {

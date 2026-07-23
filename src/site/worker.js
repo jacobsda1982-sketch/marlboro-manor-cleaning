@@ -1,4 +1,5 @@
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } })
+const twiml = body => new Response(`<?xml version="1.0" encoding="UTF-8"?><Response>${body}</Response>`, { status: 200, headers: { 'content-type': 'text/xml; charset=utf-8', 'cache-control': 'no-store' } })
 const clean = (value, max = 300) => String(value ?? '').trim().slice(0, max)
 const emailOkay = value => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 const tokenOkay = value => /^[A-Za-z0-9_-]{24,160}$/.test(value)
@@ -33,6 +34,37 @@ async function twilioWebhook(request, env, kind) {
   await env.DB.prepare('INSERT INTO public_intake (id,kind,status,created_at,updated_at,email,payload) VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING').bind(id, kind, 'NEW', now, now, '', JSON.stringify(payload)).run()
   if (kind === 'SMS_INBOUND') return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', { status: 200, headers: { 'content-type': 'text/xml; charset=utf-8' } })
   return new Response('', { status: 204 })
+}
+
+async function twilioVoiceWebhook(request, env, kind) {
+  const text = await request.text(), params = new URLSearchParams(text)
+  if (!(await validTwilioSignature(request, env, params))) return new Response('Invalid signature', { status: 403 })
+  const now = new Date().toISOString(), callSid = clean(params.get('CallSid'), 100), id = `${kind}-${callSid || crypto.randomUUID()}-${crypto.randomUUID().slice(0, 8)}`
+  const payload = {
+    eventType: kind,
+    callSid,
+    from: clean(params.get('From'), 40),
+    to: clean(params.get('To'), 40),
+    callStatus: clean(params.get('CallStatus'), 40),
+    digits: clean(params.get('Digits'), 10),
+    speechResult: clean(params.get('SpeechResult'), 2000),
+    confidence: Number(params.get('Confidence') || 0),
+    receivedAt: now
+  }
+  await env.DB.prepare('INSERT INTO public_intake (id,kind,status,created_at,updated_at,email,payload) VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING').bind(id, kind, 'NEW', now, now, '', JSON.stringify(payload)).run()
+  if (kind === 'VOICE_STATUS') return new Response('', { status: 204 })
+  if (kind === 'VOICE_GATHER') {
+    const choice = payload.digits || payload.speechResult.toLowerCase()
+    const response = choice === '1' || /quote|estimate/.test(choice)
+      ? 'You can request a personalized estimate at marlboro manor cleaning dot com slash quote. We have also recorded your request for follow up.'
+      : choice === '2' || /schedule|appointment/.test(choice)
+        ? 'Your scheduling request has been recorded for a care coordinator.'
+        : choice === '3' || /service|appointment/.test(choice)
+          ? 'Your existing service request has been recorded for priority review.'
+          : 'Your callback request has been recorded. A care coordinator will follow up during business hours.'
+    return twiml(`<Say voice="Polly.Joanna">${response}</Say><Say voice="Polly.Joanna">Thank you for calling Marlboro Manor Cleaning. Goodbye.</Say>`)
+  }
+  return twiml(`<Gather input="dtmf speech" numDigits="1" timeout="5" speechTimeout="auto" action="https://marlboromanorcleaning.com/api/twilio/voice/gather" method="POST"><Say voice="Polly.Joanna">Thank you for calling Marlboro Manor Cleaning. Press or say 1 for a cleaning estimate, 2 for scheduling, 3 for an existing appointment, or 0 for a callback.</Say></Gather><Say voice="Polly.Joanna">We did not receive a selection. Your callback request has been recorded. Goodbye.</Say>`)
 }
 
 function authorized(request, env) {
@@ -177,9 +209,12 @@ export default {
       if (!env.DB) return json({ ok: false, error: 'Public workflow storage is not configured.' }, 503)
       await ensureSchema(env.DB)
       try {
-        if (url.pathname === '/api/health') return json({ ok: true, service: 'marble-public-workflows', version: '1.4.0', smsWebhooks: Boolean(env.TWILIO_AUTH_TOKEN), crewOffers: true, managedCrewBids: true, crewWallets: true })
+        if (url.pathname === '/api/health') return json({ ok: true, service: 'marble-public-workflows', version: '1.5.0', smsWebhooks: Boolean(env.TWILIO_AUTH_TOKEN), voiceWebhooks: Boolean(env.TWILIO_AUTH_TOKEN), crewOffers: true, managedCrewBids: true, crewWallets: true })
         if (url.pathname === '/api/twilio/inbound' && request.method === 'POST') return twilioWebhook(request, env, 'SMS_INBOUND')
         if (url.pathname === '/api/twilio/status' && request.method === 'POST') return twilioWebhook(request, env, 'SMS_STATUS')
+        if (url.pathname === '/api/twilio/voice/inbound' && request.method === 'POST') return twilioVoiceWebhook(request, env, 'VOICE_INBOUND')
+        if (url.pathname === '/api/twilio/voice/gather' && request.method === 'POST') return twilioVoiceWebhook(request, env, 'VOICE_GATHER')
+        if (url.pathname === '/api/twilio/voice/status' && request.method === 'POST') return twilioVoiceWebhook(request, env, 'VOICE_STATUS')
         if (url.pathname === '/api/quote' && request.method === 'POST') return submitQuote(request, env)
         if (url.pathname === '/api/scheduling' && ['GET', 'POST'].includes(request.method)) return scheduling(request, env, url)
         if (url.pathname === '/api/crew-offer' && ['GET', 'POST'].includes(request.method)) return crewOffer(request, env, url)
