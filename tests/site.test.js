@@ -75,10 +75,12 @@ test('business phone is consistently published for calls and structured data', (
   })
 })
 
-test('homepage discloses concept imagery without prototype language', () => {
+test('homepage uses the approved residential gallery without legacy image notices', () => {
   const home = renderPage(pages.find(page => page.path === '/'))
-  assert.match(home, /Brand concept image; not a customer home/)
-  assert.doesNotMatch(home, /preview-only|policy draft|owner-reviewed workflow/i)
+  assert.match(home, /images\/gallery\/clean-living-room\.png/)
+  assert.match(home, /images\/gallery\/clean-kitchen\.png/)
+  assert.match(home, /images\/gallery\/clean-bathroom\.png/)
+  assert.doesNotMatch(home, /concept image|preview-only|policy draft|owner-reviewed workflow/i)
 })
 
 test('approved company seal is present in hero, footer, and social metadata', () => {
@@ -98,7 +100,7 @@ test('rendered markup uses encoding-safe HTML entities for UI symbols', () => {
 })
 
 test('stylesheet URL is versioned to prevent mixed production assets', () => {
-  assert.match(renderPage(pages.find(page => page.home)), /href="\/styles\.css\?v=3\.5\.0"/)
+  assert.match(renderPage(pages.find(page => page.home)), /href="\/styles\.css\?v=3\.6\.0"/)
 })
 
 test('service pages publish Service schema and internal pages publish breadcrumbs', () => {
