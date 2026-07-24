@@ -114,8 +114,72 @@ function setupScheduling() {
   }).catch(error => show(status, `${error.message || error} Reply to your scheduling email for assistance.`, true))
 }
 
+function setupPreparation() {
+  const form = $('#preparation-form'), status = $('#preparation-status')
+  if (!form) return
+  const token = new URLSearchParams(location.search).get('token') || ''
+  if (!token) return show(status, 'Open the private preparation link sent for your appointment.', true)
+  const sync = () => {
+    const presence = $('[name="presencePlan"]:checked', form)?.value || ''
+    $('#home-contact-fields').hidden = !['CUSTOMER_HOME', 'OTHER_PERSON_HOME'].includes(presence)
+    $('#access-plan-card').hidden = presence !== 'INDEPENDENT_ACCESS'
+    const method = $('[name="accessMethod"]', form)?.value || ''
+    $('#access-code-field').hidden = !['SMART_LOCK', 'KEYPAD', 'LOCKBOX', 'OTHER'].includes(method)
+    $('#alarm-code-field').hidden = $('[name="alarmPlan"]', form)?.value !== 'TEMPORARY_CODE'
+    $('#pet-plan-fields').hidden = !$('#pets-at-visit').checked
+  }
+  fetch(`/api/preparation?token=${encodeURIComponent(token)}`).then(async response => {
+    const result = await response.json()
+    if (!response.ok || !result.ok) throw new Error(result.error)
+    status.hidden = true
+    form.hidden = false
+    if (result.safePlan) {
+      Object.entries(result.safePlan).forEach(([name, value]) => {
+        $$(`[name="${name}"]`, form).forEach(field => {
+          if (field.type === 'radio') field.checked = field.value === value
+          else if (field.type === 'checkbox') field.checked = Boolean(value)
+          else if (!['accessCode', 'alarmCode'].includes(name)) field.value = value ?? ''
+        })
+      })
+    }
+    sync()
+    form.addEventListener('change', sync)
+    form.addEventListener('submit', async event => {
+      event.preventDefault()
+      sync()
+      if (!form.reportValidity()) return
+      const button = $('button[type="submit"]', form)
+      button.disabled = true
+      button.textContent = 'Encrypting and saving…'
+      try {
+        const values = Object.fromEntries(new FormData(form).entries())
+        const payload = {
+          token,
+          ...values,
+          petsPresent: values.petsPresent === 'on',
+          petAcknowledgement: values.petAcknowledgement === 'on',
+          rearmAlarm: values.rearmAlarm === 'on',
+          secureAccessConsent: values.secureAccessConsent === 'on'
+        }
+        const response = await fetch('/api/preparation', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
+        const output = await response.json()
+        if (!response.ok || !output.ok) throw new Error(output.error)
+        form.hidden = true
+        show(status, output.readiness === 'NEEDS_REVIEW'
+          ? 'Your plan was saved. A care coordinator will contact you before dispatch to resolve the remaining safety details.'
+          : 'Your preparation plan is saved. The team will receive only the information needed for this appointment.')
+      } catch (error) {
+        button.disabled = false
+        button.textContent = 'Save preparation plan'
+        show(status, error.message || String(error), true)
+      }
+    })
+  }).catch(error => show(status, `${error.message || error} Contact scheduling for assistance.`, true))
+}
+
 if (document.body.dataset.page === '/quote/') setupQuote()
 if (document.body.dataset.page === '/schedule/') setupScheduling()
+if (document.body.dataset.page === '/prepare/') setupPreparation()
 
 function setupCrewOffer() {
   const root = $('#native-crew-offer'), status = $('#crew-offer-status'); if (!root) return
@@ -125,7 +189,7 @@ function setupCrewOffer() {
   fetch(`/api/crew-offer?token=${encodeURIComponent(token)}`).then(async response => {
     const data = await response.json(); if (!response.ok || !data.ok) throw new Error(data.error); status.hidden = true
     const managed = data.coverageType === 'MANAGED_CREW'
-    root.innerHTML = `<article class="schedule-summary"><p class="eyebrow">${esc(data.role || 'Cleaner')} opportunity</p><h2>${esc(data.serviceName || 'Residential cleaning')}</h2><dl class="sidebar-facts"><div><dt>Date</dt><dd>${esc(new Date(data.startAt).toLocaleString())}</dd></div><div><dt>Area</dt><dd>${esc(data.city || '')}, ${esc(data.zip || '')}</dd></div><div><dt>Estimated labor</dt><dd>${Number(data.estimatedLaborHours || 0).toFixed(1)} hours</dd></div><div><dt>Maximum crew coverage requested</dt><dd>${managed ? `${Number(data.crewSizeCovered || 1)} managed crew slot(s)` : 'One individual crew position'}</dd></div><div><dt>Maximum payout offered</dt><dd><strong>${money(data.offerAmount)}</strong></dd></div></dl><div class="security-note"><span aria-hidden="true">i</span><span>${esc(data.terms || '')}</span></div></article>${data.status === 'OPEN' ? `<form id="crew-offer-form" class="native-form">${managed?`<div class="form-grid"><label>Crew slots you can provide<input name="crewSlotsBid" type="number" min="1" max="${Number(data.crewSizeCovered||1)}" step="1" value="${Number(data.crewSizeCovered||1)}" required></label><label>Your payout bid<input name="payoutBidAmount" type="number" min="1" max="${Number(data.offerAmount||0)}" step="0.01" value="${Number(data.offerAmount||0).toFixed(2)}" required></label></div>`:''}<label>Optional note<textarea name="notes" maxlength="1000" placeholder="Availability details, crew capacity confirmation, or a question for operations"></textarea></label><div class="schedule-action"><button class="button button-gold" name="decision" value="ACCEPT" type="submit">Submit bid response</button><button class="button button-ghost" name="decision" value="DECLINE" type="submit">Decline</button></div></form>` : `<div class="form-status success">Response recorded: ${esc(data.status)}. Assignment requires a separate confirmation from operations.</div>`}
+    root.innerHTML = `<article class="schedule-summary"><p class="eyebrow">${esc(data.role || 'Cleaner')} opportunity</p><h2>${esc(data.serviceName || 'Residential cleaning')}</h2><dl class="sidebar-facts"><div><dt>Date</dt><dd>${esc(new Date(data.startAt).toLocaleString())}</dd></div><div><dt>Area</dt><dd>${esc(data.city || '')}, ${esc(data.zip || '')}</dd></div><div><dt>Estimated labor</dt><dd>${Number(data.estimatedLaborHours || 0).toFixed(1)} hours</dd></div><div><dt>Maximum crew coverage requested</dt><dd>${managed ? `${Number(data.crewSizeCovered || 1)} managed crew slot(s)` : 'One individual crew position'}</dd></div><div><dt>Maximum payout offered</dt><dd><strong>${money(data.offerAmount)}</strong></dd></div></dl><div class="security-note"><span aria-hidden="true">i</span><span>${esc(data.terms || '')}</span></div></article>${data.status === 'OPEN' ? `<form id="crew-offer-form" class="native-form">${managed?`<div class="form-grid"><label>Crew slots you can provide<input name="crewSlotsBid" type="number" min="1" max="${Number(data.crewSizeCovered||1)}" step="1" value="${Number(data.crewSizeCovered||1)}" required></label><label>Your payout bid<input name="payoutBidAmount" type="number" min="1" max="${Number(data.offerAmount||0)}" step="0.01" value="${Number(data.offerAmount||0).toFixed(2)}" required></label></div>`:''}<label>Optional note<textarea name="notes" maxlength="1000" placeholder="Availability details, crew capacity confirmation, or a question for operations"></textarea></label><div class="schedule-action"><button class="button button-gold" name="decision" value="ACCEPT" type="submit">Submit bid response</button><button class="button button-ghost" name="decision" value="DECLINE" type="submit">Decline</button></div></form>` : `<div class="form-status success">Response recorded: ${esc(data.status)}. Assignment requires a separate confirmation from operations.</div>`}`
     const form = $('#crew-offer-form'); if (!form) return; let decision = ''
     $$('button[name=decision]', form).forEach(button => button.addEventListener('click', () => { decision = button.value }))
     form.addEventListener('submit', async event => { event.preventDefault(); try { if (!decision) throw new Error('Choose interested or decline.'); const values=new FormData(form),notes=values.get('notes')||'',crewSlotsBid=managed?Number(values.get('crewSlotsBid')):1,payoutBidAmount=managed?Number(values.get('payoutBidAmount')):Number(data.offerAmount||0),response = await fetch('/api/crew-offer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, decision, notes, crewSlotsBid, payoutBidAmount }) }), output = await response.json(); if (!response.ok || !output.ok) throw new Error(output.error); root.innerHTML = `<div class="form-status success">${esc(output.message)}</div>` } catch (error) { show(status, error.message || String(error), true) } })
