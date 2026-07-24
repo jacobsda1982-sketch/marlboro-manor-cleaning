@@ -403,7 +403,7 @@ export default {
       if (!env.DB) return json({ ok: false, error: 'Public workflow storage is not configured.' }, 503)
       await ensureSchema(env.DB)
       try {
-        if (url.pathname === '/api/health') return json({ ok: true, service: 'marble-public-workflows', version: '2.0.0', customerServiceHub: true, brandedAppointment: true, brandedPayment: true, compliantFeedback: true, persistentCrewAccess: true, portalMessaging: true, portalAnalytics: true, smsWebhooks: Boolean(env.TWILIO_AUTH_TOKEN), voiceWebhooks: Boolean(env.TWILIO_AUTH_TOKEN), crewOffers: true, managedCrewBids: true, crewWallets: true, securePreparation: Boolean(env.ACCESS_VAULT_KEY || env.MARBLE_QUEUE_SECRET) })
+        if (url.pathname === '/api/health') return json({ ok: true, service: 'marble-public-workflows', version: '2.1.0', customerServiceHub: true, brandedAppointment: true, brandedPayment: true, compliantFeedback: true, persistentCrewAccess: true, crewJobExecution: true, portalMessaging: true, operationsReplies: true, portalAnalytics: true, smsWebhooks: Boolean(env.TWILIO_AUTH_TOKEN), voiceWebhooks: Boolean(env.TWILIO_AUTH_TOKEN), crewOffers: true, managedCrewBids: true, crewWallets: true, securePreparation: Boolean(env.ACCESS_VAULT_KEY || env.MARBLE_QUEUE_SECRET) })
         const external = await handleExternalPortal(request, env, url)
         if (external) return external
         if (url.pathname === '/api/twilio/inbound' && request.method === 'POST') return twilioWebhook(request, env, 'SMS_INBOUND')

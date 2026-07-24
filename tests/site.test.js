@@ -189,7 +189,7 @@ test('secure visit preparation captures presence and pets without exposing crede
 
 test('public worker exposes signed SMS and voice intake endpoints', async () => {
   const worker = await readFile(new URL('../src/site/worker.js', import.meta.url), 'utf8')
-  assert.match(worker, /version: '2\.0\.0'/)
+  assert.match(worker, /version: '2\.1\.0'/)
   assert.match(worker, /\/api\/twilio\/inbound/)
   assert.match(worker, /\/api\/twilio\/voice\/inbound/)
   assert.match(worker, /\/api\/twilio\/voice\/gather/)

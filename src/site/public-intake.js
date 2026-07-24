@@ -396,7 +396,11 @@ function setupCrewWorkspace() {
     status.hidden = true
     forgetPortalToken()
     const offers = data.offers || []
-    root.innerHTML = `<section class="portal-hero-card"><div><p class="eyebrow">Contractor workspace</p><h2>${esc(data.profile?.name || 'Available work')}</h2><p>${esc(data.profile?.role || 'Independent contractor')}</p></div><span class="portal-status">${offers.filter(item => item.status === 'OPEN').length} open</span></section><div class="crew-offer-list">${offers.length ? offers.map(item => `<article class="crew-offer-card"><div><p class="eyebrow">${esc(item.role || item.coverageType || 'Opportunity')}</p><h3>${esc(item.serviceName || 'Residential cleaning')}</h3><p>${esc(new Date(item.startAt).toLocaleString())} · ${esc(item.city || '')}, ${esc(item.zip || '')}</p></div><dl><div><dt>Labor</dt><dd>${Number(item.estimatedLaborHours || 0).toFixed(1)} hrs</dd></div><div><dt>Slots</dt><dd>${Number(item.crewSizeCovered || 1)}</dd></div><div><dt>Maximum payout</dt><dd>${money(item.offerAmount)}</dd></div></dl>${item.status === 'OPEN' ? `<form class="crew-bid-form" data-offer-id="${esc(item.offerId)}"><div class="form-grid"><label>Slots<input name="crewSlotsBid" type="number" min="1" max="${Number(item.crewSizeCovered || 1)}" value="${Number(item.crewSizeCovered || 1)}" required></label><label>Payout bid<input name="payoutBidAmount" type="number" min="1" max="${Number(item.offerAmount || 0)}" step=".01" value="${Number(item.offerAmount || 0).toFixed(2)}" required></label></div><label>Note<textarea name="notes" maxlength="1000"></textarea></label><div class="schedule-action"><button class="button button-gold" name="decision" value="ACCEPT">Submit bid</button><button class="button button-ghost" name="decision" value="DECLINE">Decline</button></div></form>` : `<span class="portal-status">${esc(friendlyStatus(item.status))}</span>`}</article>`).join('') : '<p class="portal-empty">No work opportunities are available right now.</p>'}</div>`
+    const jobs = data.jobs || []
+    root.innerHTML = `<section class="portal-hero-card"><div><p class="eyebrow">Contractor workspace</p><h2>${esc(data.profile?.name || 'Your work')}</h2><p>${esc(data.profile?.role || 'Independent contractor')}</p></div><div class="crew-workspace-counts"><span class="portal-status">${jobs.filter(item => !['COMPLETED', 'CANCELLED'].includes(item.status)).length} assigned</span><span class="portal-status">${offers.filter(item => item.status === 'OPEN').length} open</span></div></section>
+      <section class="crew-job-section"><div class="portal-section-heading"><div><p class="eyebrow">Assigned work</p><h3>Jobs and field actions</h3></div><p>Check in, complete required tasks, report issues, and submit work for quality review.</p></div><div class="crew-job-list">${jobs.length ? jobs.map(renderCrewJob).join('') : '<p class="portal-empty">No jobs are assigned right now.</p>'}</div></section>
+      <section class="crew-opportunity-section"><div class="portal-section-heading"><div><p class="eyebrow">Marketplace</p><h3>Available opportunities</h3></div><p>A submitted bid is not an assignment. Operations confirms all work separately.</p></div><div class="crew-offer-list">${offers.length ? offers.map(item => `<article class="crew-offer-card"><div><p class="eyebrow">${esc(item.role || item.coverageType || 'Opportunity')}</p><h3>${esc(item.serviceName || 'Residential cleaning')}</h3><p>${esc(new Date(item.startAt).toLocaleString())} · ${esc(item.city || '')}, ${esc(item.zip || '')}</p></div><dl><div><dt>Labor</dt><dd>${Number(item.estimatedLaborHours || 0).toFixed(1)} hrs</dd></div><div><dt>Slots</dt><dd>${Number(item.crewSizeCovered || 1)}</dd></div><div><dt>Maximum payout</dt><dd>${money(item.offerAmount)}</dd></div></dl>${item.status === 'OPEN' ? `<form class="crew-bid-form" data-offer-id="${esc(item.offerId)}"><div class="form-grid"><label>Slots<input name="crewSlotsBid" type="number" min="1" max="${Number(item.crewSizeCovered || 1)}" value="${Number(item.crewSizeCovered || 1)}" required></label><label>Payout bid<input name="payoutBidAmount" type="number" min="1" max="${Number(item.offerAmount || 0)}" step=".01" value="${Number(item.offerAmount || 0).toFixed(2)}" required></label></div><label>Note<textarea name="notes" maxlength="1000"></textarea></label><div class="schedule-action"><button class="button button-gold" name="decision" value="ACCEPT">Submit bid</button><button class="button button-ghost" name="decision" value="DECLINE">Decline</button></div></form>` : `<span class="portal-status">${esc(friendlyStatus(item.status))}</span>`}</article>`).join('') : '<p class="portal-empty">No work opportunities are available right now.</p>'}</div></section>`
+    bindCrewJobActions(root, token)
     $$('.crew-bid-form', root).forEach(form => {
       let decision = ''
       $$('button[name="decision"]', form).forEach(button => button.addEventListener('click', () => { decision = button.value }))
@@ -412,8 +416,65 @@ function setupCrewWorkspace() {
     renderCrewWallet(data.wallet, data.profile)
     renderMessages($('#crew-messages'), data.messages)
     setupPortalMessaging('CREW', token)
-    trackPortal('crew_workspace_viewed', 'CREW', { openOffers: offers.filter(item => item.status === 'OPEN').length })
+    trackPortal('crew_workspace_viewed', 'CREW', { openOffers: offers.filter(item => item.status === 'OPEN').length, assignedJobs: jobs.length })
   }).catch(error => show(status, error.message, true))
+}
+
+function renderCrewJob(job) {
+  const checklist = Array.isArray(job.checklist) ? job.checklist : []
+  const isActive = job.status === 'IN_PROGRESS'
+  const canStart = ['ASSIGNED', 'JOB_READY'].includes(job.status)
+  return `<article class="crew-job-card">
+    <header><div><p class="eyebrow">${esc(job.jobId)}</p><h3>${esc(job.serviceName || 'Residential cleaning')}</h3><p>${esc(new Date(job.startAt).toLocaleString())}${job.address ? ` · ${esc(job.address)}` : ''}</p></div><span class="portal-status">${esc(friendlyStatus(job.status))}</span></header>
+    <div class="crew-job-facts"><div><span>Customer</span><strong>${esc(job.customerFirstName || 'Customer')}</strong></div><div><span>Expected time</span><strong>${Math.max(1, Math.round(Number(job.expectedDurationMinutes || 0)))} min</strong></div><div><span>Agreed payout</span><strong>${money(job.agreedPayout)}</strong></div><div><span>Access</span><strong>${esc(friendlyStatus(job.accessReadiness || 'INCOMPLETE'))}</strong></div></div>
+    ${job.petSummary ? `<div class="policy-card"><strong>Pet plan</strong><p>${esc(job.petSummary)}</p></div>` : ''}
+    ${job.ownerNotes ? `<div class="policy-card"><strong>Operations notes</strong><p>${esc(job.ownerNotes)}</p></div>` : ''}
+    ${canStart ? `<button class="button button-gold crew-check-in" data-job-id="${esc(job.jobId)}">Check in and start job</button>` : ''}
+    ${isActive ? `<form class="crew-checklist-form crew-checklist" data-job-id="${esc(job.jobId)}"><h4>Cleaning checklist</h4>${checklist.length ? checklist.map(item => `<label><input type="checkbox" value="${esc(item.id)}" ${item.status === 'COMPLETED' ? 'checked' : ''}><span><strong>${esc(item.task)}</strong><small>${esc(item.section || 'Required task')}</small></span></label>`).join('') : '<p class="portal-empty">No checklist has been published. Contact operations before proceeding.</p>'}</form>
+      <details class="crew-incident-panel"><summary>Report a problem</summary><form class="crew-incident-form portal-action-form" data-job-id="${esc(job.jobId)}"><div class="form-grid"><label>Type<select name="type" required><option value="ACCESS">Access</option><option value="PROPERTY">Property condition</option><option value="SAFETY">Safety</option><option value="SUPPLY">Supplies</option><option value="OTHER">Other</option></select></label><label>Severity<select name="severity" required><option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option><option value="CRITICAL">Critical</option></select></label></div><label>What happened?<textarea name="description" required minlength="5" maxlength="1500"></textarea></label><button class="button button-outline" type="submit">Notify operations</button></form></details>
+      <form class="crew-completion-form portal-action-form" data-job-id="${esc(job.jobId)}"><h4>Ready for quality review?</h4><label>Close-out notes<textarea name="notes" maxlength="1000" placeholder="What should the owner know before QA?"></textarea></label><button class="button button-gold" type="submit">Submit for QA</button></form>` : ''}
+  </article>`
+}
+
+function bindCrewJobActions(root, token) {
+  $$('.crew-check-in', root).forEach(button => button.addEventListener('click', async () => {
+    button.disabled = true
+    try { await sendCrewJobAction(token, { jobId: button.dataset.jobId, action: 'CHECK_IN' }); location.reload() }
+    catch (error) { button.disabled = false; button.insertAdjacentHTML('afterend', `<div class="form-status form-status-error">${esc(error.message)}</div>`) }
+  }))
+  $$('.crew-checklist-form', root).forEach(form => form.addEventListener('change', async event => {
+    const input = event.target.closest('input[type="checkbox"]')
+    if (!input) return
+    input.disabled = true
+    try { await sendCrewJobAction(token, { jobId: form.dataset.jobId, action: 'CHECKLIST', itemId: input.value, completed: input.checked }) }
+    catch (error) { input.checked = !input.checked; form.insertAdjacentHTML('beforeend', `<div class="form-status form-status-error">${esc(error.message)}</div>`) }
+    finally { input.disabled = false }
+  }))
+  $$('.crew-incident-form', root).forEach(form => form.addEventListener('submit', async event => {
+    event.preventDefault()
+    const values = Object.fromEntries(new FormData(form).entries())
+    try {
+      await sendCrewJobAction(token, { jobId: form.dataset.jobId, action: 'INCIDENT', type: values.type, severity: values.severity, description: values.description })
+      form.reset()
+      form.insertAdjacentHTML('beforeend', '<div class="form-status">Operations received the incident report.</div>')
+    } catch (error) { form.insertAdjacentHTML('beforeend', `<div class="form-status form-status-error">${esc(error.message)}</div>`) }
+  }))
+  $$('.crew-completion-form', root).forEach(form => form.addEventListener('submit', async event => {
+    event.preventDefault()
+    const values = Object.fromEntries(new FormData(form).entries())
+    try {
+      await sendCrewJobAction(token, { jobId: form.dataset.jobId, action: 'REQUEST_COMPLETION', notes: values.notes })
+      form.innerHTML = '<div class="form-status">Work was submitted for owner quality review. Payment is not released until QA is approved.</div>'
+    } catch (error) { form.insertAdjacentHTML('beforeend', `<div class="form-status form-status-error">${esc(error.message)}</div>`) }
+  }))
+}
+
+function sendCrewJobAction(token, payload) {
+  return api('/api/crew-job-action', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ token, ...payload })
+  })
 }
 
 function renderCrewWallet(wallet, profile) {

@@ -28,6 +28,9 @@ export const externalPortalSchema = [
   'CREATE INDEX IF NOT EXISTS idx_feedback_portal_request ON feedback_portal_sessions(request_id,updated_at)',
   'CREATE TABLE IF NOT EXISTS crew_access_sessions (token_hash TEXT PRIMARY KEY, team_member_id TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, payload TEXT NOT NULL)',
   'CREATE INDEX IF NOT EXISTS idx_crew_access_member ON crew_access_sessions(team_member_id,updated_at)',
+  'CREATE TABLE IF NOT EXISTS crew_job_assignments (id TEXT PRIMARY KEY, job_id TEXT NOT NULL, team_member_id TEXT NOT NULL, status TEXT NOT NULL, start_at TEXT NOT NULL, end_at TEXT NOT NULL, updated_at TEXT NOT NULL, payload TEXT NOT NULL)',
+  'CREATE UNIQUE INDEX IF NOT EXISTS idx_crew_job_member ON crew_job_assignments(job_id,team_member_id)',
+  'CREATE INDEX IF NOT EXISTS idx_crew_job_schedule ON crew_job_assignments(team_member_id,start_at,status)',
   'CREATE TABLE IF NOT EXISTS portal_messages (id TEXT PRIMARY KEY, session_type TEXT NOT NULL, session_hash TEXT NOT NULL, case_id TEXT, sender_type TEXT NOT NULL, body TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)',
   'CREATE INDEX IF NOT EXISTS idx_portal_messages_session ON portal_messages(session_type,session_hash,created_at)',
   'CREATE TABLE IF NOT EXISTS portal_events (id TEXT PRIMARY KEY, event_name TEXT NOT NULL, route TEXT NOT NULL, session_type TEXT, session_fingerprint TEXT, detail TEXT, created_at TEXT NOT NULL)'
@@ -299,6 +302,8 @@ async function crewSession(request, env, url) {
     .filter(item => clean(item.payload.teamMemberId, 100) === access.team_member_id)
     .map(item => ({ offerId: item.row.offer_id, status: item.row.status, expiresAt: item.row.expires_at, decision: item.row.decision, respondedAt: item.row.responded_at, ...item.payload }))
   const wallet = await env.DB.prepare('SELECT payload,updated_at FROM crew_wallets WHERE team_member_id=?').bind(access.team_member_id).first()
+  const assignedJobs = await env.DB.prepare('SELECT job_id,status,start_at,end_at,payload,updated_at FROM crew_job_assignments WHERE team_member_id=? ORDER BY start_at DESC LIMIT 60')
+    .bind(access.team_member_id).all()
   const messages = await env.DB.prepare('SELECT id,sender_type,body,status,created_at FROM portal_messages WHERE session_type=? AND session_hash=? ORDER BY created_at DESC LIMIT 30')
     .bind('CREW', hash).all()
   if (request.method === 'GET') {
@@ -306,6 +311,14 @@ async function crewSession(request, env, url) {
       ok: true,
       profile: safePayload(access),
       offers,
+      jobs: assignedJobs.results.map(row => ({
+        jobId: row.job_id,
+        status: row.status,
+        startAt: row.start_at,
+        endAt: row.end_at,
+        updatedAt: row.updated_at,
+        ...safePayload(row)
+      })),
       wallet: wallet ? { ...safePayload(wallet), syncedAt: wallet.updated_at } : null,
       messages: [...messages.results].reverse()
     }, 200, { 'set-cookie': sessionCookie('mmc_crew', token, access.expires_at) })
@@ -340,6 +353,54 @@ async function crewSession(request, env, url) {
     : 'Your decline was recorded.' })
 }
 
+async function crewJobAction(request, env, url) {
+  const body = await request.json().catch(() => null)
+  const token = tokenFrom(request, url, body, 'mmc_crew')
+  if (!tokenOkay(token)) return json({ ok: false, error: 'Crew access is required.' }, 401)
+  const hash = await sha256(token)
+  const access = await env.DB.prepare('SELECT team_member_id,expires_at FROM crew_access_sessions WHERE token_hash=?').bind(hash).first()
+  if (!access || Date.parse(access.expires_at) < Date.now()) return json({ ok: false, error: 'Crew access has expired.' }, 401)
+  const jobId = clean(body?.jobId, 100)
+  const action = clean(body?.action, 40).toUpperCase()
+  const assignment = await env.DB.prepare('SELECT status,payload FROM crew_job_assignments WHERE job_id=? AND team_member_id=?')
+    .bind(jobId, access.team_member_id).first()
+  if (!assignment) return json({ ok: false, error: 'This job is not assigned to your account.' }, 404)
+  if (!['CHECK_IN', 'CHECKLIST', 'INCIDENT', 'REQUEST_COMPLETION'].includes(action)) {
+    return json({ ok: false, error: 'Unsupported crew action.' }, 400)
+  }
+  const current = safePayload(assignment)
+  let nextStatus = assignment.status
+  const event = {
+    action,
+    jobId,
+    teamMemberId: access.team_member_id,
+    submittedAt: new Date().toISOString()
+  }
+  if (action === 'CHECK_IN') {
+    if (!['ASSIGNED', 'JOB_READY'].includes(assignment.status)) return json({ ok: false, error: 'This job is not ready for check-in.' }, 409)
+    nextStatus = 'IN_PROGRESS'
+  } else if (action === 'CHECKLIST') {
+    if (assignment.status !== 'IN_PROGRESS') return json({ ok: false, error: 'Start the job before updating its checklist.' }, 409)
+    event.itemId = clean(body?.itemId, 100)
+    event.completed = Boolean(body?.completed)
+    event.notes = clean(body?.notes, 1000)
+    if (!event.itemId) return json({ ok: false, error: 'Choose a checklist item.' }, 400)
+  } else if (action === 'INCIDENT') {
+    event.type = clean(body?.type || 'OTHER', 50).toUpperCase()
+    event.severity = clean(body?.severity || 'MEDIUM', 20).toUpperCase()
+    event.description = clean(body?.description, 1500)
+    if (event.description.length < 5) return json({ ok: false, error: 'Describe the issue for operations.' }, 400)
+  } else if (action === 'REQUEST_COMPLETION') {
+    if (assignment.status !== 'IN_PROGRESS') return json({ ok: false, error: 'Only an active job can be submitted for QA.' }, 409)
+    nextStatus = 'QUALITY_REVIEW'
+    event.notes = clean(body?.notes, 1000)
+  }
+  const queueId = await queue(env, 'CREW_JOB_ACTION', event)
+  await env.DB.prepare('UPDATE crew_job_assignments SET status=?,updated_at=?,payload=? WHERE job_id=? AND team_member_id=?')
+    .bind(nextStatus, event.submittedAt, JSON.stringify({ ...current, status: nextStatus }), jobId, access.team_member_id).run()
+  return json({ ok: true, reference: queueId, status: nextStatus })
+}
+
 async function portalMessage(request, env, url) {
   const body = request.method === 'POST' ? await request.json().catch(() => null) : null
   const audience = clean(body?.audience || url.searchParams.get('audience') || 'CUSTOMER', 20).toUpperCase()
@@ -348,10 +409,12 @@ async function portalMessage(request, env, url) {
   if (!tokenOkay(token)) return json({ ok: false, error: 'Portal access is required.' }, 401)
   const hash = await sha256(token)
   let caseId = ''
+  let teamMemberId = ''
   if (audience === 'CREW') {
     const session = await env.DB.prepare('SELECT team_member_id,expires_at FROM crew_access_sessions WHERE token_hash=?').bind(hash).first()
     if (!session || Date.parse(session.expires_at) < Date.now()) return json({ ok: false, error: 'Crew access has expired.' }, 401)
     caseId = clean(body?.caseId, 100)
+    teamMemberId = session.team_member_id
   } else {
     const session = await env.DB.prepare('SELECT job_id,expires_at FROM service_portal_sessions WHERE token_hash=?').bind(hash).first()
     if (!session || Date.parse(session.expires_at) < Date.now()) return json({ ok: false, error: 'Service access has expired.' }, 401)
@@ -371,6 +434,7 @@ async function portalMessage(request, env, url) {
   await queue(env, audience === 'CREW' ? 'CREW_PORTAL_MESSAGE' : 'CUSTOMER_PORTAL_MESSAGE', {
     messageId: id,
     caseId,
+    teamMemberId,
     body: message,
     submittedAt: now
   })
@@ -405,6 +469,55 @@ async function publishCrewAccess(env, body) {
   return json({ ok: true, url: `https://marlboromanorcleaning.com/crew/?token=${encodeURIComponent(token)}` })
 }
 
+async function publishCrewJob(env, body) {
+  const jobId = clean(body?.jobId, 100)
+  const teamMemberId = clean(body?.teamMemberId, 100)
+  const startAt = clean(body?.startAt, 50)
+  const endAt = clean(body?.endAt, 50)
+  if (!jobId || !teamMemberId || !startAt || !endAt) return json({ ok: false, error: 'Invalid crew job assignment.' }, 400)
+  const now = new Date().toISOString()
+  const id = `${jobId}:${teamMemberId}`
+  const payload = {
+    serviceName: clean(body?.serviceName, 200),
+    customerFirstName: clean(body?.customerFirstName, 80),
+    address: clean(body?.address, 400),
+    accessReadiness: clean(body?.accessReadiness || 'INCOMPLETE', 50),
+    presencePlan: clean(body?.presencePlan, 100),
+    petSummary: clean(body?.petSummary, 500),
+    ownerNotes: clean(body?.ownerNotes, 1000),
+    estimatedLaborHours: Number(body?.estimatedLaborHours || 0),
+    expectedDurationMinutes: Number(body?.expectedDurationMinutes || 0),
+    agreedPayout: Number(body?.agreedPayout || 0),
+    checklist: Array.isArray(body?.checklist) ? body.checklist.slice(0, 80).map(item => ({
+      id: clean(item?.id, 100),
+      section: clean(item?.section, 100),
+      task: clean(item?.task, 500),
+      required: item?.required !== false,
+      status: clean(item?.status || 'PENDING', 30),
+      notes: clean(item?.notes, 1000)
+    })) : []
+  }
+  await env.DB.prepare(`INSERT INTO crew_job_assignments (id,job_id,team_member_id,status,start_at,end_at,updated_at,payload)
+    VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(job_id,team_member_id) DO UPDATE SET status=excluded.status,
+    start_at=excluded.start_at,end_at=excluded.end_at,updated_at=excluded.updated_at,payload=excluded.payload`)
+    .bind(id, jobId, teamMemberId, clean(body?.status || 'ASSIGNED', 50), startAt, endAt, now, JSON.stringify(payload)).run()
+  return json({ ok: true, jobId, teamMemberId, status: clean(body?.status || 'ASSIGNED', 50) })
+}
+
+async function publishPortalReply(env, body) {
+  const audience = clean(body?.audience, 20).toUpperCase()
+  const message = clean(body?.message, 2000)
+  if (!['CUSTOMER', 'CREW'].includes(audience) || message.length < 2) return json({ ok: false, error: 'Audience and message are required.' }, 400)
+  const now = new Date().toISOString()
+  const sessions = audience === 'CREW'
+    ? await env.DB.prepare('SELECT token_hash FROM crew_access_sessions WHERE team_member_id=? AND expires_at>?').bind(clean(body?.teamMemberId, 100), now).all()
+    : await env.DB.prepare('SELECT token_hash FROM service_portal_sessions WHERE job_id=? AND expires_at>?').bind(clean(body?.jobId, 100), now).all()
+  if (!sessions.results.length) return json({ ok: false, error: 'No active portal session was found for this recipient.' }, 404)
+  await env.DB.batch(sessions.results.map(session => env.DB.prepare('INSERT INTO portal_messages (id,session_type,session_hash,case_id,sender_type,body,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)')
+    .bind(`MSG-${crypto.randomUUID()}`, audience, session.token_hash, clean(body?.jobId, 100), 'OPERATIONS', message, 'DELIVERED', now, now)))
+  return json({ ok: true, deliveredSessions: sessions.results.length })
+}
+
 export async function handleExternalPortal(request, env, url) {
   const publicRoutes = {
     '/api/my-service': servicePortal,
@@ -412,7 +525,8 @@ export async function handleExternalPortal(request, env, url) {
     '/api/payment': paymentPortal,
     '/api/feedback': feedbackPortal,
     '/api/crew-session': crewSession,
-    '/api/portal-message': portalMessage
+    '/api/portal-message': portalMessage,
+    '/api/crew-job-action': crewJobAction
   }
   if (publicRoutes[url.pathname] && ['GET', 'POST'].includes(request.method)) return publicRoutes[url.pathname](request, env, url)
   if (url.pathname === '/api/portal-event' && request.method === 'POST') return portalEvent(request, env)
@@ -424,5 +538,7 @@ export async function handleExternalPortal(request, env, url) {
   if (url.pathname === '/api/marble/payment' && request.method === 'POST') return publishPayment(env, body)
   if (url.pathname === '/api/marble/feedback' && request.method === 'POST') return publishFeedback(env, body)
   if (url.pathname === '/api/marble/crew-session' && request.method === 'POST') return publishCrewAccess(env, body)
+  if (url.pathname === '/api/marble/crew-job' && request.method === 'POST') return publishCrewJob(env, body)
+  if (url.pathname === '/api/marble/portal-reply' && request.method === 'POST') return publishPortalReply(env, body)
   return null
 }
