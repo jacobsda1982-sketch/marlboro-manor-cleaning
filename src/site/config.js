@@ -8,6 +8,18 @@ export const business = {
   phoneDisplay: process.env.PUBLIC_PHONE_DISPLAY || '(301) 660-3005',
   quotePortalUrl: '/quote/',
   schedulingPortalBackendUrl: '/api/scheduling',
+  portal: {
+    version: '4.0.0',
+    servicePath: '/my-service/',
+    appointmentPath: '/appointment/',
+    paymentPath: '/payment/',
+    feedbackPath: '/feedback/',
+    crewPath: '/crew/',
+    sessionCookieDays: 90,
+    supportPhone: '(301) 660-3005',
+    schedulingEmail: 'scheduling@marlboromanorcleaning.com',
+    billingEmail: 'billing@marlboromanorcleaning.com'
+  },
   googleBusinessProfileUrl: process.env.PUBLIC_GOOGLE_BUSINESS_PROFILE_URL || '',
   analyticsId: process.env.PUBLIC_GA_MEASUREMENT_ID || '',
   testContentEnabled: false,

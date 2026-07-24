@@ -1,3 +1,5 @@
+import { externalPortalSchema, handleExternalPortal } from './external-portals.js'
+
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } })
 const twiml = body => new Response(`<?xml version="1.0" encoding="UTF-8"?><Response>${body}</Response>`, { status: 200, headers: { 'content-type': 'text/xml; charset=utf-8', 'cache-control': 'no-store' } })
 const clean = (value, max = 300) => String(value ?? '').trim().slice(0, max)
@@ -13,7 +15,8 @@ async function ensureSchema(db) {
     db.prepare('CREATE INDEX IF NOT EXISTS idx_preparation_job ON preparation_sessions(job_id,status,readiness)'),
     db.prepare('CREATE TABLE IF NOT EXISTS access_audit (id TEXT PRIMARY KEY, job_id TEXT NOT NULL, token TEXT NOT NULL, actor_id TEXT NOT NULL, crew_member_id TEXT, action TEXT NOT NULL, created_at TEXT NOT NULL, detail TEXT)'),
     db.prepare('CREATE TABLE IF NOT EXISTS crew_offer_sessions (token TEXT PRIMARY KEY, offer_id TEXT NOT NULL, status TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, payload TEXT NOT NULL, decision TEXT, notes TEXT, responded_at TEXT)'),
-    db.prepare('CREATE TABLE IF NOT EXISTS crew_wallets (team_member_id TEXT PRIMARY KEY, updated_at TEXT NOT NULL, payload TEXT NOT NULL)')
+    db.prepare('CREATE TABLE IF NOT EXISTS crew_wallets (team_member_id TEXT PRIMARY KEY, updated_at TEXT NOT NULL, payload TEXT NOT NULL)'),
+    ...externalPortalSchema.map(statement => db.prepare(statement))
   ])
 }
 
@@ -124,18 +127,56 @@ async function scheduling(request, env, url) {
     const row = await env.DB.prepare('SELECT status,expires_at,payload,selected_option_id,confirmed_at FROM scheduling_sessions WHERE token=?').bind(token).first()
     if (!row) return json({ ok: false, error: 'This scheduling request was not found.' }, 404)
     if (Date.parse(row.expires_at) < Date.now()) return json({ ok: false, error: 'This scheduling link has expired.' }, 410)
-    return json({ ok: true, status: row.status, ...JSON.parse(row.payload), selectedOptionId: row.selected_option_id, confirmedAt: row.confirmed_at })
+    const holdActive = row.status === 'HELD' && Date.parse(row.confirmed_at) > Date.now()
+    return json({ ok: true, status: holdActive ? 'HELD' : (row.status === 'HELD' ? 'OPEN' : row.status), ...JSON.parse(row.payload), selectedOptionId: holdActive ? row.selected_option_id : '', holdExpiresAt: holdActive ? row.confirmed_at : '', confirmedAt: row.status === 'CONFIRMED' ? row.confirmed_at : '' })
   }
-  const body = await request.json().catch(() => null), token = clean(body?.token, 180), optionId = clean(body?.optionId, 100)
-  if (!tokenOkay(token) || !optionId) return json({ ok: false, error: 'Choose an available appointment option.' }, 400)
-  const row = await env.DB.prepare('SELECT status,expires_at,payload FROM scheduling_sessions WHERE token=?').bind(token).first()
+  const body = await request.json().catch(() => null)
+  const token = clean(body?.token, 180)
+  const action = clean(body?.action || 'SELECT', 30).toUpperCase()
+  const optionId = clean(body?.optionId, 100)
+  if (!tokenOkay(token)) return json({ ok: false, error: 'This scheduling link is invalid.' }, 400)
+  const row = await env.DB.prepare('SELECT status,expires_at,payload,selected_option_id,confirmed_at FROM scheduling_sessions WHERE token=?').bind(token).first()
   if (!row) return json({ ok: false, error: 'This scheduling request was not found.' }, 404)
   if (row.status === 'CONFIRMED') return json({ ok: true, status: 'CONFIRMED', idempotent: true })
   if (Date.parse(row.expires_at) < Date.now()) return json({ ok: false, error: 'This scheduling link has expired.' }, 410)
-  const session = JSON.parse(row.payload), option = (session.options || []).find(item => String(item.id) === optionId)
+  const session = JSON.parse(row.payload)
+  const now = new Date().toISOString()
+  if (action === 'ALTERNATE') {
+    const requestedDate = clean(body?.requestedDate, 20)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) return json({ ok: false, error: 'Choose a preferred alternate date.' }, 400)
+    const id = `SCHED-${crypto.randomUUID()}`
+    const responsePayload = {
+      token,
+      action: 'REQUEST_ALTERNATE',
+      schedulingRequestId: session.schedulingRequestId,
+      quoteId: session.quoteId,
+      requestedDate,
+      timeWindow: clean(body?.timeWindow, 40),
+      notes: clean(body?.notes, 1000),
+      submittedAt: now
+    }
+    await env.DB.batch([
+      env.DB.prepare('UPDATE scheduling_sessions SET status=?,updated_at=?,customer_notes=? WHERE token=?').bind('ALTERNATE_REQUESTED', now, responsePayload.notes, token),
+      env.DB.prepare('INSERT INTO public_intake (id,kind,status,created_at,updated_at,email,payload) VALUES (?,?,?,?,?,?,?)').bind(id, 'SCHEDULING', 'NEW', now, now, clean(session.customerEmail).toLowerCase(), JSON.stringify(responsePayload))
+    ])
+    return json({ ok: true, status: 'ALTERNATE_REQUESTED', message: 'Your alternate-date request was received. The current options remain unconfirmed.' })
+  }
+  if (!optionId) return json({ ok: false, error: 'Choose an available appointment option.' }, 400)
+  const option = (session.options || []).find(item => String(item.id) === optionId)
   if (!option) return json({ ok: false, error: 'That appointment option is no longer available.' }, 409)
-  const now = new Date().toISOString(), id = `SCHED-${crypto.randomUUID()}`, notes = clean(body.notes, 1000)
-  const responsePayload = { token, schedulingRequestId: session.schedulingRequestId, quoteId: session.quoteId, optionId, option, notes, submittedAt: now }
+  if (action === 'HOLD') {
+    const holdExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
+    await env.DB.prepare('UPDATE scheduling_sessions SET status=?,updated_at=?,selected_option_id=?,confirmed_at=? WHERE token=?')
+      .bind('HELD', now, optionId, holdExpiresAt, token).run()
+    return json({ ok: true, status: 'HELD', optionId, holdExpiresAt, message: 'This option is held for ten minutes while you finish.' })
+  }
+  if (action !== 'SELECT') return json({ ok: false, error: 'Unsupported scheduling action.' }, 400)
+  if (row.status === 'HELD' && (row.selected_option_id !== optionId || Date.parse(row.confirmed_at) < Date.now())) {
+    return json({ ok: false, error: 'The temporary hold expired. Select the appointment again to refresh it.' }, 409)
+  }
+  const id = `SCHED-${crypto.randomUUID()}`
+  const notes = clean(body.notes, 1000)
+  const responsePayload = { token, action: 'SELECT', schedulingRequestId: session.schedulingRequestId, quoteId: session.quoteId, optionId, option, notes, submittedAt: now }
   await env.DB.batch([
     env.DB.prepare('UPDATE scheduling_sessions SET status=?,updated_at=?,selected_option_id=?,customer_notes=?,confirmed_at=? WHERE token=?').bind('CUSTOMER_SELECTED', now, optionId, notes, now, token),
     env.DB.prepare('INSERT INTO public_intake (id,kind,status,created_at,updated_at,email,payload) VALUES (?,?,?,?,?,?,?)').bind(id, 'SCHEDULING', 'NEW', now, now, clean(session.customerEmail).toLowerCase(), JSON.stringify(responsePayload))
@@ -302,7 +343,12 @@ async function publishCrewOffer(request, env) {
   const body = await request.json().catch(() => null), token = clean(body?.token, 180), offerId = clean(body?.offerId, 100)
   if (!tokenOkay(token) || !offerId || !body?.expiresAt) return json({ ok: false, error: 'Invalid crew offer session.' }, 400)
   const now = new Date().toISOString(), payload = { offerId, jobId: clean(body.jobId, 100), teamMemberId: clean(body.teamMemberId, 100), contractorName: clean(body.contractorName), serviceName: clean(body.serviceName), startAt: clean(body.startAt, 50), endAt: clean(body.endAt, 50), city: clean(body.city), zip: clean(body.zip, 10), role: clean(body.role), coverageType: clean(body.coverageType, 30) || 'POSITION', crewSizeCovered: Math.max(1, Number(body.crewSizeCovered || 1)), estimatedLaborHours: Number(body.estimatedLaborHours || 0), expectedDurationMinutes: Number(body.expectedDurationMinutes || 0), offerAmount: Number(body.offerAmount || 0), terms: clean(body.terms, 3000) }
-  await env.DB.prepare("INSERT INTO crew_offer_sessions (token,offer_id,status,expires_at,created_at,updated_at,payload) VALUES (?,?,?,?,?,?,?) ON CONFLICT(token) DO UPDATE SET status='OPEN',expires_at=excluded.expires_at,updated_at=excluded.updated_at,payload=excluded.payload").bind(token, offerId, 'OPEN', clean(body.expiresAt, 50), now, now, JSON.stringify(payload)).run()
+  const accessExpiresAt = new Date(Math.max(Date.parse(clean(body.expiresAt, 50)) || 0, Date.now() + 90 * 86400000)).toISOString()
+  const tokenHash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token)))].map(byte => byte.toString(16).padStart(2, '0')).join('')
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO crew_offer_sessions (token,offer_id,status,expires_at,created_at,updated_at,payload) VALUES (?,?,?,?,?,?,?) ON CONFLICT(token) DO UPDATE SET status='OPEN',expires_at=excluded.expires_at,updated_at=excluded.updated_at,payload=excluded.payload").bind(token, offerId, 'OPEN', clean(body.expiresAt, 50), now, now, JSON.stringify(payload)),
+    env.DB.prepare("INSERT INTO crew_access_sessions (token_hash,team_member_id,expires_at,created_at,updated_at,payload) VALUES (?,?,?,?,?,?) ON CONFLICT(token_hash) DO UPDATE SET team_member_id=excluded.team_member_id,expires_at=excluded.expires_at,updated_at=excluded.updated_at,payload=excluded.payload").bind(tokenHash, clean(body.teamMemberId, 100), accessExpiresAt, now, now, JSON.stringify({name:clean(body.contractorName),role:clean(body.role)}))
+  ])
   return json({ ok: true, url: `https://marlboromanorcleaning.com/crew/?token=${encodeURIComponent(token)}` })
 }
 
@@ -357,7 +403,9 @@ export default {
       if (!env.DB) return json({ ok: false, error: 'Public workflow storage is not configured.' }, 503)
       await ensureSchema(env.DB)
       try {
-        if (url.pathname === '/api/health') return json({ ok: true, service: 'marble-public-workflows', version: '1.6.0', smsWebhooks: Boolean(env.TWILIO_AUTH_TOKEN), voiceWebhooks: Boolean(env.TWILIO_AUTH_TOKEN), crewOffers: true, managedCrewBids: true, crewWallets: true, securePreparation: Boolean(env.ACCESS_VAULT_KEY || env.MARBLE_QUEUE_SECRET) })
+        if (url.pathname === '/api/health') return json({ ok: true, service: 'marble-public-workflows', version: '2.0.0', customerServiceHub: true, brandedAppointment: true, brandedPayment: true, compliantFeedback: true, persistentCrewAccess: true, portalMessaging: true, portalAnalytics: true, smsWebhooks: Boolean(env.TWILIO_AUTH_TOKEN), voiceWebhooks: Boolean(env.TWILIO_AUTH_TOKEN), crewOffers: true, managedCrewBids: true, crewWallets: true, securePreparation: Boolean(env.ACCESS_VAULT_KEY || env.MARBLE_QUEUE_SECRET) })
+        const external = await handleExternalPortal(request, env, url)
+        if (external) return external
         if (url.pathname === '/api/twilio/inbound' && request.method === 'POST') return twilioWebhook(request, env, 'SMS_INBOUND')
         if (url.pathname === '/api/twilio/status' && request.method === 'POST') return twilioWebhook(request, env, 'SMS_STATUS')
         if (url.pathname === '/api/twilio/voice/inbound' && request.method === 'POST') return twilioVoiceWebhook(request, env, 'VOICE_INBOUND')

@@ -159,11 +159,11 @@ test('crew workspace includes a private earnings wallet and payout lifecycle', a
   const script = await readFile(new URL('../src/site/public-intake.js', import.meta.url), 'utf8')
   const worker = await readFile(new URL('../src/site/worker.js', import.meta.url), 'utf8')
   assert.match(crew, /id="crew-wallet"/)
-  assert.match(crew, /Work & earnings/)
-  assert.match(script, /\/api\/crew-wallet\?token=/)
+  assert.match(crew, /Work, assignments & earnings/)
+  assert.match(script, /\/api\/crew-session/)
   assert.match(script, /Available/)
   assert.match(script, /Processing/)
-  assert.match(script, /Payout history/)
+  assert.match(script, /Payouts/)
   assert.match(worker, /CREATE TABLE IF NOT EXISTS crew_wallets/)
   assert.match(worker, /\/api\/marble\/crew-wallet/)
 })
@@ -189,7 +189,7 @@ test('secure visit preparation captures presence and pets without exposing crede
 
 test('public worker exposes signed SMS and voice intake endpoints', async () => {
   const worker = await readFile(new URL('../src/site/worker.js', import.meta.url), 'utf8')
-  assert.match(worker, /version: '1\.6\.0'/)
+  assert.match(worker, /version: '2\.0\.0'/)
   assert.match(worker, /\/api\/twilio\/inbound/)
   assert.match(worker, /\/api\/twilio\/voice\/inbound/)
   assert.match(worker, /\/api\/twilio\/voice\/gather/)

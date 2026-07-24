@@ -46,3 +46,16 @@ Executed with bundled Node on 2026-07-19:
 - Apex and `www` redirects
 - Response headers and CSP
 - Legal/policy owner review
+
+## External portal v4 — July 24, 2026
+
+- Automated site tests: **19 passed, 0 failed**.
+- Production build: **29 routes**.
+- Added customer service hub, appointment management, payment center,
+  feedback, persistent crew workspace, portal messaging, and event analytics.
+- Added server-side ten-minute appointment holds and alternate-time requests.
+- New portal sessions are SHA-256 hash-backed and exchange tokens for secure,
+  HttpOnly, SameSite cookies.
+- Private routes are noindex, disallowed in robots, and excluded from service
+  worker caching.
+- Live D1 and private Marble smoke tests remain required after deployment.

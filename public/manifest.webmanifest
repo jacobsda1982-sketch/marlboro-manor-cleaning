@@ -1,0 +1,17 @@
+{
+  "name": "Marlboro Manor Cleaning",
+  "short_name": "Marlboro Manor",
+  "description": "Premium residential cleaning and private service management.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f7f7",
+  "theme_color": "#0b2130",
+  "icons": [
+    {
+      "src": "/images/brand/marlboro-manor-seal.webp",
+      "sizes": "720x720",
+      "type": "image/webp",
+      "purpose": "any maskable"
+    }
+  ]
+}

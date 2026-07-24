@@ -48,3 +48,7 @@ document.querySelectorAll('[data-insurance-effective]').forEach(element => {
     element.textContent = 'Commercial liability insured'
   }
 })
+
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}))
+}

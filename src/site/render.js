@@ -93,7 +93,75 @@ function preparationExperience() {
 }
 
 function crewOfferExperience() {
-  return `<section class="section scheduling-experience single-page-scheduling crew-offer-experience"><div class="container"><div class="schedule-intro"><div><p class="eyebrow">Secure contractor workspace</p><h2>Work & earnings</h2><p>Review available work and follow every approved earning through payout.</p></div><div class="quote-benefits"><span>Fixed payout shown</span><span>Private access</span><span>Transparent earnings</span></div></div><div class="schedule-workspace"><div><div class="native-form-shell schedule-card"><div id="crew-offer-status" class="form-status schedule-loading" role="status" aria-live="polite"><span class="loading-spinner" aria-hidden="true"></span><span>Loading this work opportunity&hellip;</span></div><div id="native-crew-offer"></div></div><section id="crew-wallet" class="crew-wallet" aria-labelledby="wallet-title"><div class="wallet-loading"><span class="loading-spinner" aria-hidden="true"></span><span>Loading your earnings wallet&hellip;</span></div></section></div><aside class="schedule-sidebar"><div class="sidebar-brand"><span class="assurance-icon" aria-hidden="true">MM</span><p class="eyebrow">Marlboro Manor</p><h3>How assignment works</h3></div><ol class="appointment-path"><li class="active"><span>1</span><div><strong>Express interest</strong><small>Accept means you are available at the displayed payout.</small></div></li><li><span>2</span><div><strong>Owner selection</strong><small>Operations reviews all interested contractors.</small></div></li><li><span>3</span><div><strong>Assignment notice</strong><small>Only a separate confirmation assigns the job.</small></div></li><li><span>4</span><div><strong>QA & payout</strong><small>Approved work moves into your weekly settlement.</small></div></li></ol><div class="security-note"><span aria-hidden="true">&#128274;</span><span>This private link shows only your own offers and earnings. Do not forward it.</span></div></aside></div></div></section>`
+  return `<section class="section scheduling-experience single-page-scheduling crew-offer-experience"><div class="container"><div class="schedule-intro"><div><p class="eyebrow">Secure contractor workspace</p><h2>Work, assignments & earnings</h2><p>Review every opportunity, track assignment decisions, and follow approved earnings through payout.</p></div><div class="quote-benefits"><span>All opportunities</span><span>Private access</span><span>Transparent earnings</span></div></div><div class="schedule-workspace"><div><div class="native-form-shell schedule-card"><div id="crew-offer-status" class="form-status schedule-loading" role="status" aria-live="polite"><span class="loading-spinner" aria-hidden="true"></span><span>Loading your contractor workspace&hellip;</span></div><div id="native-crew-offer"></div></div><section id="crew-wallet" class="crew-wallet" aria-labelledby="wallet-title"><div class="wallet-loading"><span class="loading-spinner" aria-hidden="true"></span><span>Loading your earnings wallet&hellip;</span></div></section><section class="crew-message-card"><h3>Message operations</h3><div id="crew-messages" class="portal-message-list"></div><form id="crew-message-form" class="portal-message-form"><label for="crew-message">Question or update</label><textarea id="crew-message" name="message" maxlength="2000" required placeholder="Ask about an opportunity, assignment, checklist, or payout"></textarea><button class="button button-gold" type="submit">Send to operations</button></form></section></div><aside class="schedule-sidebar"><div class="sidebar-brand"><span class="assurance-icon" aria-hidden="true">MM</span><p class="eyebrow">Marlboro Manor</p><h3>How assignment works</h3></div><ol class="appointment-path"><li class="active"><span>1</span><div><strong>Express interest</strong><small>Your bid records availability and requested payout.</small></div></li><li><span>2</span><div><strong>Owner selection</strong><small>Operations reviews capacity and coverage.</small></div></li><li><span>3</span><div><strong>Assignment notice</strong><small>Only a separate confirmation assigns the job.</small></div></li><li><span>4</span><div><strong>QA & payout</strong><small>Approved work moves into settlement.</small></div></li></ol><div class="security-note"><span aria-hidden="true">&#128274;</span><span>This access session covers your own opportunities and earnings. Do not forward it.</span></div></aside></div></div></section>`
+}
+
+function externalPortalShell({kind, eyebrow, heading, intro, rootId, loading, benefits, sidebarHeading, steps, helpEmail}) {
+  return `<section class="section scheduling-experience single-page-scheduling external-portal external-${esc(kind)}"><div class="container"><div class="schedule-intro"><div><p class="eyebrow">${esc(eyebrow)}</p><h2>${esc(heading)}</h2><p>${esc(intro)}</p></div><div class="quote-benefits">${benefits.map(item => `<span>${esc(item)}</span>`).join('')}</div></div><div class="schedule-workspace"><div class="native-form-shell schedule-card"><div id="${esc(rootId)}-status" class="form-status schedule-loading" role="status" aria-live="polite"><span class="loading-spinner" aria-hidden="true"></span><span>${esc(loading)}</span></div><div id="${esc(rootId)}"></div></div><aside class="schedule-sidebar"><div class="sidebar-brand"><span class="assurance-icon" aria-hidden="true">MM</span><p class="eyebrow">Marlboro Manor</p><h3>${esc(sidebarHeading)}</h3></div><ol class="appointment-path">${steps.map((step, index) => `<li class="${step.state || (index === 0 ? 'active' : '')}"><span>${index + 1}</span><div><strong>${esc(step.title)}</strong><small>${esc(step.copy)}</small></div></li>`).join('')}</ol><div class="security-note"><span aria-hidden="true">&#128274;</span><span>Your private link is encrypted in transit and scoped to this service journey.</span></div><p class="quote-fallback">Need help? <a href="mailto:${esc(helpEmail)}">Contact your care team</a>.</p></aside></div></div></section>`
+}
+
+function servicePortalExperience() {
+  return externalPortalShell({
+    kind: 'service', eyebrow: 'Private service workspace', heading: 'Your cleaning, all in one place.',
+    intro: 'See what is complete, what needs your attention, and what happens next.',
+    rootId: 'service-portal', loading: 'Loading your service journey\u2026',
+    benefits: ['One secure link', 'Live status', 'Direct support'], sidebarHeading: 'Your service path',
+    steps: [
+      {title:'Estimate approved',copy:'Your accepted scope and price.',state:'complete'},
+      {title:'Appointment',copy:'Select and confirm a service time.',state:'active'},
+      {title:'Prepare & pay',copy:'Complete access and card requirements.'},
+      {title:'Service & follow-up',copy:'Track completion, feedback, and receipts.'}
+    ],
+    helpEmail: business.portal.schedulingEmail
+  })
+}
+
+function appointmentPortalExperience() {
+  return externalPortalShell({
+    kind: 'appointment', eyebrow: 'Appointment management', heading: 'Manage your appointment.',
+    intro: 'Confirm readiness or submit a rescheduling or cancellation request without losing the current reservation.',
+    rootId: 'appointment-portal', loading: 'Loading your appointment\u2026',
+    benefits: ['Current status', 'Change requests', 'Human reviewed'], sidebarHeading: 'Change protection',
+    steps: [
+      {title:'Review appointment',copy:'Confirm the service, place, and time.',state:'complete'},
+      {title:'Choose an action',copy:'Ready, reschedule, or cancel.',state:'active'},
+      {title:'Owner review',copy:'Changes do not apply until confirmed.'},
+      {title:'Final notice',copy:'Receive the updated appointment by email.'}
+    ],
+    helpEmail: business.portal.schedulingEmail
+  })
+}
+
+function paymentPortalExperience() {
+  return externalPortalShell({
+    kind: 'payment', eyebrow: 'Secure payment center', heading: 'Clear payment requirements.',
+    intro: 'Review the approved amount, cancellation terms, saved-card status, and payment history.',
+    rootId: 'payment-portal', loading: 'Loading your secure payment center\u2026',
+    benefits: ['Stripe secured', 'No card data stored here', 'Policy recorded'], sidebarHeading: 'Payment path',
+    steps: [
+      {title:'Review terms',copy:'See the amount and cancellation policy.',state:'active'},
+      {title:'Save payment method',copy:'Continue securely through Stripe.'},
+      {title:'Owner-reviewed charge',copy:'Charges follow the approved service record.'},
+      {title:'Receipt',copy:'Completed transactions appear in your history.'}
+    ],
+    helpEmail: business.portal.billingEmail
+  })
+}
+
+function feedbackPortalExperience() {
+  return externalPortalShell({
+    kind: 'feedback', eyebrow: 'Service follow-up', heading: 'How did we do?',
+    intro: 'Private feedback helps our local care team recognize great work and respond when something needs attention.',
+    rootId: 'feedback-portal', loading: 'Loading your feedback request\u2026',
+    benefits: ['Private response', 'Service recovery', 'Optional public review'], sidebarHeading: 'What happens next',
+    steps: [
+      {title:'Share private feedback',copy:'Rate the completed service.',state:'active'},
+      {title:'Care-team review',copy:'Every response reaches operations.'},
+      {title:'Resolve concerns',copy:'Lower ratings open service recovery.'},
+      {title:'Optional public feedback',copy:'Public reviews are always your choice.'}
+    ],
+    helpEmail: business.supportEmail
+  })
 }
 
 function pageBody(page) {
@@ -103,6 +171,10 @@ function pageBody(page) {
   if (page.faq) return `${hero(page)}<section class="section"><div class="container content-narrow">${faq()}</div></section>`
   if (page.quote) return `<h1 class="sr-only">${esc(page.h1)}</h1>${quoteExperienceC()}`
   if (page.scheduling) return `<h1 class="sr-only">${esc(page.h1)}</h1>${schedulingExperience()}`
+  if (page.servicePortal) return `<h1 class="sr-only">${esc(page.h1)}</h1>${servicePortalExperience()}`
+  if (page.appointmentPortal) return `<h1 class="sr-only">${esc(page.h1)}</h1>${appointmentPortalExperience()}`
+  if (page.paymentPortal) return `<h1 class="sr-only">${esc(page.h1)}</h1>${paymentPortalExperience()}`
+  if (page.feedbackPortal) return `<h1 class="sr-only">${esc(page.h1)}</h1>${feedbackPortalExperience()}`
   if (page.preparation) return `<h1 class="sr-only">${esc(page.h1)}</h1>${preparationExperience()}`
   if (page.crewOffer) return `<h1 class="sr-only">${esc(page.h1)}</h1>${crewOfferExperience()}`
   if (page.contact) return `${hero(page)}<section class="section"><div class="container contact-grid"><article class="card"><h2>New estimate</h2><p>Use the guided estimate form so we receive the property and scope details needed to help.</p>${quoteLink('Get My Estimate')}</article><article class="card"><h2>General question</h2><p><a href="mailto:${esc(business.supportEmail)}" data-conversion="email">${esc(business.supportEmail)}</a></p>${business.phoneDisplay ? `<p><a href="tel:${esc(business.phoneE164)}" data-conversion="phone">${esc(business.phoneDisplay)}</a></p>` : ''}<p>${esc(business.hours)}</p></article></div></section>`

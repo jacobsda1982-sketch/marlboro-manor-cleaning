@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0",
+  "tenantId": "marlboro-manor-cleaning",
+  "brand": {
+    "name": "Marlboro Manor Cleaning",
+    "shortName": "Marlboro Manor",
+    "tagline": "Come Home to Immaculate.",
+    "primaryColor": "#0b2130",
+    "accentColor": "#c89a4b",
+    "serviceColor": "#137f78"
+  },
+  "contact": {
+    "phone": "+13016603005",
+    "supportEmail": "hello@marlboromanorcleaning.com",
+    "schedulingEmail": "scheduling@marlboromanorcleaning.com",
+    "billingEmail": "billing@marlboromanorcleaning.com"
+  },
+  "routes": {
+    "serviceHub": "/my-service/",
+    "appointment": "/appointment/",
+    "payment": "/payment/",
+    "feedback": "/feedback/",
+    "crew": "/crew/"
+  },
+  "policies": {
+    "cancellationVersion": "CONFIGURE_IN_MARBLE",
+    "reviewPlatforms": ["GOOGLE", "YELP"]
+  },
+  "features": {
+    "customerMessaging": true,
+    "crewMessaging": true,
+    "schedulingHolds": true,
+    "paymentMethodCapture": true,
+    "feedbackAndRecovery": true,
+    "pwaShell": true
+  },
+  "providers": {
+    "payments": "stripe",
+    "accounting": "wave",
+    "hosting": "cloudflare",
+    "operations": "google-workspace"
+  }
+}

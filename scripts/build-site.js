@@ -14,6 +14,7 @@ await cp(path.join(root, 'public'), dist, { recursive: true })
 await cp(path.join(root, 'src', 'site', 'styles.css'), path.join(dist, 'styles.css'))
 await cp(path.join(root, 'src', 'site', 'site.js'), path.join(dist, 'site.js'))
 await cp(path.join(root, 'src', 'site', 'public-intake.js'), path.join(dist, 'public-intake.js'))
+await cp(path.join(root, 'src', 'site', 'external-portals.js'), path.join(dist, 'external-portals.js'))
 
 for (const page of pages) {
   const destination = page.path === '/404.html'
@@ -22,13 +23,16 @@ for (const page of pages) {
       ? path.join(dist, 'index.html')
       : path.join(dist, page.path.slice(1), 'index.html')
   await mkdir(path.dirname(destination), { recursive: true })
-  const html = renderPage(page).replace('</body>', '<script src="/public-intake.js" defer></script></body>')
+  const html = renderPage(page)
+    .replace('<link rel="icon" href="/favicon.svg">', '<link rel="icon" href="/favicon.svg"><link rel="manifest" href="/manifest.webmanifest">')
+    .replace('/styles.css?v=3.6.0', '/styles.css?v=4.0.0')
+    .replace('</body>', '<script src="/public-intake.js" defer></script></body>')
   await writeFile(destination, html, 'utf8')
 }
 
 const sitemap = pages.filter(page => page.path !== '/404.html' && !page.noindex).map(page => `  <url><loc>${business.origin}${page.path}</loc></url>`).join('\n')
 await writeFile(path.join(dist, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitemap}\n</urlset>\n`)
-await writeFile(path.join(dist, 'robots.txt'), `User-agent: *\nAllow: /\nDisallow: /schedule/\nDisallow: /prepare/\nDisallow: /crew/\nSitemap: ${business.origin}/sitemap.xml\n`)
+await writeFile(path.join(dist, 'robots.txt'), `User-agent: *\nAllow: /\nDisallow: /schedule/\nDisallow: /prepare/\nDisallow: /crew/\nDisallow: /my-service/\nDisallow: /appointment/\nDisallow: /payment/\nDisallow: /feedback/\nSitemap: ${business.origin}/sitemap.xml\n`)
 
 const redirects = `https://www.marlboromanorcleaning.com/* https://marlboromanorcleaning.com/:splat 301\n`
 await writeFile(path.join(dist, '_redirects'), redirects)
@@ -36,8 +40,8 @@ await cp(path.join(root, 'src', 'site', 'worker.js'), path.join(dist, '_worker.j
 await mkdir(path.join(dist, 'server'), { recursive: true })
 await writeFile(path.join(dist, 'server', 'index.js'), `export default {\n  async fetch(request, env) {\n    const url = new URL(request.url)\n    if (url.hostname === 'www.marlboromanorcleaning.com') {\n      url.hostname = 'marlboromanorcleaning.com'\n      return Response.redirect(url.toString(), 301)\n    }\n    return env.ASSETS.fetch(request)\n  }\n}\n`)
 
-const files = ['index.html', 'styles.css', 'site.js', 'public-intake.js', 'sitemap.xml', 'robots.txt', '_headers', '_redirects', '_worker.js']
+const files = ['index.html', 'styles.css', 'site.js', 'public-intake.js', 'external-portals.js', 'manifest.webmanifest', 'sw.js', 'sitemap.xml', 'robots.txt', '_headers', '_redirects', '_worker.js']
 const checksums = {}
 for (const file of files) checksums[file] = createHash('sha256').update(await readFile(path.join(dist, file))).digest('hex')
-await writeFile(path.join(dist, 'release-manifest.json'), JSON.stringify({ version: '3.3.0', generatedAt: new Date().toISOString(), routeCount: pages.length, checksums }, null, 2))
+await writeFile(path.join(dist, 'release-manifest.json'), JSON.stringify({ version: '4.0.0', generatedAt: new Date().toISOString(), routeCount: pages.length, checksums }, null, 2))
 console.log(`Built ${pages.length} static routes in dist/`)
